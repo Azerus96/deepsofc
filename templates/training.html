@@ -1,0 +1,390 @@
+=== FILE: training.html ===
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Training Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet>
+    <style>
+        /* Полный CSS без пропусков */
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding-bottom: 150px;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+            background: #f0f0f0;
+            padding: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background-color: #45a049;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .menu-toggle {
+            position: fixed;
+            left: 10px;
+            top: 20px;
+            z-index: 1003;
+            background: #4CAF50;
+            border: none;
+            border-radius: 0 5px 5px 0;
+            padding: 15px 10px;
+            cursor: pointer;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+
+        .menu-panel {
+            position: fixed;
+            left: -300px;
+            top: 0;
+            bottom: 0;
+            width: 300px;
+            background: white;
+            z-index: 1002;
+            transition: left 0.3s ease;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .menu-panel.open {
+            left: 0;
+        }
+
+        .setting-group {
+            margin-bottom: 20px;
+        }
+
+        .setting-group label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .setting-group select,
+        .setting-group input[type="range"],
+        .setting-group input[type="checkbox"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            width: auto;
+        }
+
+        .table {
+            display: grid;
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+            margin: 20px auto;
+            width: 95%;
+            max-width: 1200px;
+            background-color: #1a472a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .row {
+            display: flex;
+            justify-content: center;
+            gap: 2%;
+            min-height: 120px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(255,255,255,0.1);
+            flex-wrap: nowrap;
+        }
+
+        .card-slot {
+            position: relative;
+            width: calc(70px + 2vw);
+            height: calc(100px + 2vw);
+            min-width: 50px;
+            min-height: 70px;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 8px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            background-color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: calc(16px + 1vw);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            cursor: pointer;
+            touch-action: none;
+            transition: transform 0.2s ease;
+        }
+
+        .card[data-suit="♥"], .card[data-suit="♦"] {
+            color: #e44145;
+        }
+
+        .card[data-suit="♣"], .card[data-suit="♠"] {
+            color: #2d2d2d;
+        }
+
+        .selector-item.unavailable {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .card-slot {
+                width: 60px;
+                height: 84px;
+            }
+            
+            .card {
+                font-size: 20px;
+            }
+            
+            .selector-item {
+                padding: 8px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" onclick="toggleMenu()">
+        <span class="material-icons">menu</span>
+    </button>
+
+    <div class="menu-panel">
+        <h3>Настройки</h3>
+        <div class="setting-group">
+            <label for="fantasyType">Тип фантазии:</label>
+            <select id="fantasyType">
+                <option value="normal">Обычная</option>
+                <option value="progressive">Прогрессивная</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <div class="checkbox-container">
+                <input type="checkbox" id="fantasyMode">
+                <label for="fantasyMode">Режим фантазии</label>
+            </div>
+        </div>
+        <div class="setting-group">
+            <label for="aiTime">Время на ход ИИ (сек):</label>
+            <input type="range" id="aiTime" min="1" max="60" value="5">
+            <span id="aiTimeValue">5</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="resetTraining()">Сброс</button>
+        <button onclick="distributeCards()">Распределить</button>
+    </div>
+
+    <div class="table">
+        <div class="row" id="top-row"></div>
+        <div class="row" id="middle-row"></div>
+        <div class="row" id="bottom-row"></div>
+    </div>
+
+    <div class="card-controls">
+        <div class="selector-row">
+            <div class="selector-item" data-rank="A">A</div>
+            <div class="selector-item" data-rank="K">K</div>
+            <div class="selector-item" data-rank="Q">Q</div>
+            <div class="selector-item" data-rank="J">J</div>
+            <div class="selector-item" data-rank="10">10</div>
+            <div class="selector-item" data-rank="9">9</div>
+            <div class="selector-item" data-rank="8">8</div>
+            <div class="selector-item" data-rank="7">7</div>
+            <div class="selector-item" data-rank="6">6</div>
+            <div class="selector-item" data-rank="5">5</div>
+            <div class="selector-item" data-rank="4">4</div>
+            <div class="selector-item" data-rank="3">3</div>
+            <div class="selector-item" data-rank="2">2</div>
+        </div>
+        <div class="selector-row">
+            <button class="selector-item action-button" onclick="distributeCards()">+</button>
+            <div class="selector-item" data-suit="♥">♥</div>
+            <div class="selector-item" data-suit="♦">♦</div>
+            <div class="selector-item" data-suit="♣">♣</div>
+            <div class="selector-item" data-suit="♠">♠</div>
+            <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
+        </div>
+    </div>
+
+    <script>
+        let unavailableCards = new Set();
+        let selectedRank = null;
+        let selectedSuit = null;
+
+        function toggleMenu() {
+            const menu = document.querySelector('.menu-panel');
+            menu.classList.toggle('open');
+        }
+
+        function createCard(rank, suit) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.draggable = true;
+            card.dataset.rank = rank;
+            card.dataset.suit = suit;
+            card.textContent = `${rank}${suit}`;
+            
+            card.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('text/plain', '');
+                e.dataTransfer.setData('card', JSON.stringify({ rank, suit }));
+                card.style.opacity = '0.5';
+            });
+
+            card.addEventListener('dragend', e => {
+                card.style.opacity = '1';
+                if (e.dataTransfer.dropEffect === 'none') {
+                    card.remove();
+                    unavailableCards.delete(`${rank}${suit}`);
+                }
+            });
+
+            card.addEventListener('touchstart', handleTouchStart);
+            card.addEventListener('touchmove', handleTouchMove);
+            card.addEventListener('touchend', handleTouchEnd);
+
+            return card;
+        }
+
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            this.startX = touch.clientX;
+            this.startY = touch.clientY;
+            this.style.transition = 'none';
+        }
+
+        function handleTouchMove(e) {
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - this.startX;
+            const deltaY = touch.clientY - this.startY;
+            this.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        }
+
+        function handleTouchEnd(e) {
+            this.style.transition = 'transform 0.2s ease';
+            this.style.transform = '';
+            
+            const slots = Array.from(document.querySelectorAll('.card-slot'));
+            const touch = e.changedTouches[0];
+            const targetSlot = slots.reduce((closest, slot) => {
+                const rect = slot.getBoundingClientRect();
+                const distance = Math.hypot(
+                    touch.clientX - rect.left - rect.width/2,
+                    touch.clientY - rect.top - rect.height/2
+                );
+                return distance < closest.distance ? { slot, distance } : closest;
+            }, { slot: null, distance: Infinity }).slot;
+
+            if (targetSlot && !targetSlot.querySelector('.card')) {
+                targetSlot.appendChild(this);
+                unavailableCards.add(`${this.dataset.rank}${this.dataset.suit}`);
+                updateCardAvailability();
+            }
+        }
+
+        function updateCardAvailability() {
+            document.querySelectorAll('.selector-item').forEach(item => {
+                const type = item.dataset.rank ? 'rank' : 'suit';
+                const value = item.dataset[type];
+                const isUsed = document.querySelectorAll(`.card[data-${type}="${value}"]`).length > 0;
+                item.classList.toggle('unavailable', isUsed);
+            });
+        }
+
+        function removeSelectedCards() {
+            const combinationArea = document.getElementById('combination-area');
+            combinationArea.querySelectorAll('.card').forEach(card => {
+                unavailableCards.delete(`${card.dataset.rank}${card.dataset.suit}`);
+                card.remove();
+            });
+            updateCardAvailability();
+        }
+
+        function resetTraining() {
+            unavailableCards.clear();
+            document.querySelectorAll('.card-slot').forEach(slot => slot.innerHTML = '');
+            document.querySelectorAll('.selector-item').forEach(item => 
+                item.classList.remove('unavailable'));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.selector-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    if (item.dataset.rank) {
+                        selectedRank = item.dataset.rank;
+                        document.querySelectorAll('[data-rank]').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                    } else if (item.dataset.suit) {
+                        selectedSuit = item.dataset.suit;
+                        document.querySelectorAll('[data-suit]').forEach(el => 
+                            el.classList.remove('selected'));
+                        item.classList.add('selected');
+                    }
+
+                    if (selectedRank && selectedSuit) {
+                        const cardKey = `${selectedRank}${selectedSuit}`;
+                        if (!unavailableCards.has(cardKey)) {
+                            const card = createCard(selectedRank, selectedSuit);
+                            document.querySelector('#combination-area').appendChild(card);
+                            unavailableCards.add(cardKey);
+                            updateCardAvailability();
+                            selectedRank = null;
+                            selectedSuit = null;
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
