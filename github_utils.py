@@ -1,63 +1,71 @@
 from github import Github, GithubException
-import base64
 import os
-import logging
+import base64
 
-def connect_to_github():
-    """Установка соединения с GitHub"""
-    token = os.getenv('GITHUB_TOKEN')
+# GitHub repository settings (can be overridden by environment variables)
+GITHUB_USERNAME = os.environ.get("GITHUB_USERNAME") or "Azerus96"
+GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY") or "deepsofc"
+AI_PROGRESS_FILENAME = "cfr_data.pkl"
+
+def save_progress_to_github(filename=AI_PROGRESS_FILENAME):
+    token = os.environ.get("AI_PROGRESS_TOKEN")
     if not token:
-        raise ValueError("GitHub token not configured")
-    return Github(token)
+        print("AI_PROGRESS_TOKEN not set. Progress saving disabled.")
+        return False # Indicate failure
 
-def save_progress_to_github(filename, repo_name, branch='main'):
-    """Полная реализация сохранения на GitHub"""
     try:
-        g = connect_to_github()
-        repo = g.get_user(Azerus96).get_repo(deepsofc)
-        
-        with open(filename, 'rb') as f:
-            content = base64.b64encode(f.read()).decode('utf-8')
-            
+        g = Github(token)
+        repo = g.get_user(GITHUB_USERNAME).get_repo(GITHUB_REPOSITORY)
+
         try:
-            file = repo.get_contents(filename, ref=branch)
-            repo.update_file(file.path, f"Update {filename}", content, file.sha, branch=branch)
-        except GithubException:
-            repo.create_file(filename, f"Create {filename}", content, branch=branch)
-            
-        logging.info(f"Файл {filename} успешно сохранен на GitHub")
-        return True
-    
-    except GithubException as e:
-        logging.error(f"GitHub API error: {str(e)}")
-        return False
-    except Exception as e:
-        logging.error(f"General error: {str(e)}")
-        return False
+            contents = repo.get_contents(filename, ref="main")
+            with open(filename, 'rb') as f:
+                content = f.read()
+            repo.update_file(contents.path, "Update AI progress", base64.b64encode(content).decode('utf-8'), contents.sha, branch="main")
+            print(f"AI progress saved to GitHub: {GITHUB_REPOSITORY}/{filename}")
+            return True # Indicate success
+        except GithubException as e:
+            if e.status == 404:
+                with open(filename, 'rb') as f:
+                    content = f.read()
+                repo.create_file(filename, "Initial AI progress", base64.b64encode(content).decode('utf-8'), branch="main")
+                print(f"Created new file for AI progress on GitHub: {GITHUB_REPOSITORY}/{filename}")
+                return True # Indicate success
+            else:
+                print(f"Error saving progress to GitHub (other than 404): {e}")
+                return False # Indicate failure
 
-def load_progress_from_github(filename, repo_name, branch='main'):
-    """Полная реализация загрузки с GitHub"""
+    except GithubException as e:
+        print(f"Error saving progress to GitHub: {e}")
+        return False # Indicate failure
+    except Exception as e:
+        print(f"An unexpected error occurred during saving: {e}")
+        return False # Indicate failure
+
+
+def load_progress_from_github(filename=AI_PROGRESS_FILENAME):
+    token = os.environ.get("AI_PROGRESS_TOKEN")
+    if not token:
+        print("AI_PROGRESS_TOKEN not set. Progress loading disabled.")
+        return False # Indicate failure
+
     try:
-        g = connect_to_github()
-        repo = g.get_user().get_repo(repo_name)
-        file = repo.get_contents(filename, ref=branch)
-        content = base64.b64decode(file.content).decode('utf-8')
-        
-        with open(filename, 'w') as f:
-            f.write(content)
-            
-        logging.info(f"Файл {filename} успешно загружен с GitHub")
-        return True
-    
-    except GithubException as e:
-        logging.error(f"GitHub API error: {str(e)}")
-        return False
-    except Exception as e:
-        logging.error(f"General error: {str(e)}")
-        return False
+        g = Github(token)
+        repo = g.get_user(GITHUB_USERNAME).get_repo(GITHUB_REPOSITORY)
+        contents = repo.get_contents(filename, ref="main")
+        file_content = base64.b64decode(contents.content)
+        with open(filename, 'wb') as f:
+            f.write(file_content)
+        print(f"AI progress loaded from GitHub: {GITHUB_REPOSITORY}/{filename}")
+        return True # Indicate success
 
-def backup_to_github(data, repo_name):
-    """Создание резервной копии данных на GitHub"""
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    filename = f"backups/game_state_{timestamp}.json"
-    return save_progress_to_github(filename, repo_name)
+    except GithubException as e:
+        if e.status == 404:
+            print("Progress file not found in GitHub repository.")
+            return False # Indicate failure
+        else:
+            print(f"Error loading progress from GitHub: {e}")
+            return False # Indicate failure
+    except Exception as e:
+        print(f"An unexpected error occurred during loading: {e}")
+        return False # Indicate failure
