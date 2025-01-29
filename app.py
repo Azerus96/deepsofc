@@ -1,70 +1,46 @@
 from flask import Flask, render_template, jsonify, session, request
-from threading import Thread, Event
 import os
-import time
-import json
-from ai_engine import GameState, Card, AIPlayer
+import ai_engine
 import utils
 import github_utils
+import time
+import json
+from threading import Thread, Event
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
-ai_player = AIPlayer()
+
+# Global AI agent instance
+cfr_agent = None
+
+# Function to initialize the AI agent with settings
+def initialize_ai_agent(ai_settings):
+    global cfr_agent
+    iterations = int(ai_settings.get('iterations', 1000))
+    stop_threshold = float(ai_settings.get('stopThreshold', 0.001))
+    cfr_agent = ai_engine.CFRAgent(iterations=iterations, stop_threshold=stop_threshold)
+
+    if os.environ.get("AI_PROGRESS_TOKEN"):
+        try:
+            cfr_agent.load_progress()
+            print("AI progress loaded successfully.")
+        except Exception as e:
+            print(f"Error loading AI progress: {e}")
+    else:
+        print("AI_PROGRESS_TOKEN not set. Progress loading disabled.")
+
+# Initialize AI agent with default settings on app start
+initialize_ai_agent({})
+
 
 @app.route('/')
 def home():
     return render_template('index.html')
 
+
 @app.route('/training')
 def training():
-    init_game_state()
-    return render_template('training.html', game_state=session['game_state'])
-
-@app.route('/update_state', methods=['POST'])
-def update_state():
-    try:
-        game_state = request.get_json()
-        validate_game_state(game_state)
-        
-        session['game_state'] = game_state
-        session.modified = True
-        
-        if game_state['ai_settings'] != session.get('prev_ai_settings'):
-            update_ai_settings(game_state['ai_settings'])
-            
-        return jsonify({'status': 'success'})
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-@app.route('/ai_move', methods=['POST'])
-def ai_move():
-    try:
-        game_data = request.get_json()
-        validate_ai_move_request(game_data)
-        
-        game_state = convert_to_game_state(game_data)
-        timeout = int(game_data.get('ai_settings', {}).get('aiTime', 5))
-        
-        result = {'move': None, 'error': None}
-        ai_thread = Thread(target=execute_ai_move, args=(game_state, result, timeout))
-        
-        ai_thread.start()
-        ai_thread.join(timeout=timeout + 1)
-        
-        if ai_thread.is_alive():
-            return jsonify({'error': 'AI move timeout'}), 504
-            
-        if result['error']:
-            return jsonify({'error': result['error']}), 500
-            
-        update_session_state(result['move'])
-        return jsonify(serialize_move(result['move']))
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-def init_game_state():
+    # Initialize game state if it doesn't exist
     if 'game_state' not in session:
         session['game_state'] = {
             'selected_cards': [],
@@ -75,60 +51,122 @@ def init_game_state():
                 'fantasyMode': False,
                 'aiTime': '5',
                 'iterations': '1000',
-                'stopThreshold': '0.001'
+                'stopThreshold': '0.001',
+                'aiType': 'mccfr'
             }
         }
 
-def validate_game_state(state):
-    required_keys = ['selected_cards', 'board', 'discarded_cards', 'ai_settings']
-    if not all(key in state for key in required_keys):
-        raise ValueError("Invalid game state structure")
+    # Initialize AI agent if it's not initialized or settings have changed
+    if cfr_agent is None or session['game_state']['ai_settings'] != session.get('previous_ai_settings'):
+        initialize_ai_agent(session['game_state']['ai_settings'])
+        session['previous_ai_settings'] = session['game_state']['ai_settings'].copy()
 
-def update_ai_settings(settings):
-    ai_player.__init__()
-    session['prev_ai_settings'] = settings.copy()
+    return render_template('training.html', game_state=session['game_state'])
 
-def convert_to_game_state(data):
-    return GameState(
-        selected_cards=[Card(c['rank'], c['suit']) for c in data['selected_cards']],
-        board=parse_board(data['board']),
-        discarded_cards=[Card(c['rank'], c['suit']) for c in data['discarded_cards']],
-        ai_settings=data.get('ai_settings', {})
-    )
 
-def parse_board(board_data):
-    board = {}
-    for line in ['top', 'middle', 'bottom']:
-        board[line] = [Card(c['rank'], c['suit']) for c in board_data.get(line, [])]
-    return board
+@app.route('/update_state', methods=['POST'])
+def update_state():
+    if not request.is_json:
+        return jsonify({'error': 'Content type must be application/json'}), 400
 
-def execute_ai_move(game_state, result, timeout):
-    try:
-        event = Event()
-        result['move'] = ai_player.get_action(game_state)
-    except Exception as e:
-        result['error'] = str(e)
+    game_state = request.get_json()
 
-def update_session_state(move):
-    if move and move.action_type == 'place':
-        session['game_state']['board'][move.line].append({
-            'rank': move.card.rank,
-            'suit': move.card.suit
-        })
-    elif move and move.action_type == 'discard':
-        session['game_state']['discarded_cards'].append({
-            'rank': move.card.rank,
-            'suit': move.card.suit
-        })
+    if not isinstance(game_state, dict):
+        return jsonify({'error': 'Invalid game state format'}), 400
+
+    session['game_state'] = game_state
     session.modified = True
 
-def serialize_move(move):
-    return {
-        'action_type': move.action_type,
-        'card': {'rank': move.card.rank, 'suit': move.card.suit},
-        'line': move.line,
-        'reason': move.reason
-    }
+    if game_state['ai_settings'] != session.get('previous_ai_settings'):
+        initialize_ai_agent(game_state['ai_settings'])
+        session['previous_ai_settings'] = game_state['ai_settings'].copy()
+
+    return jsonify({'status': 'success'})
+
+
+@app.route('/ai_move', methods=['POST'])
+def ai_move():
+    global cfr_agent
+    if cfr_agent is None:  # Check if the agent is initialized
+        return jsonify({'error': 'AI agent not initialized'}), 500
+
+    game_state_data = request.get_json()
+    print("Received game_state_data:", game_state_data)
+
+    num_cards = len(game_state_data.get('selected_cards', []))
+    ai_settings = game_state_data.get('ai_settings', {})
+
+    try:
+        selected_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data['selected_cards']]
+        discarded_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data.get('discarded_cards', [])]
+        board = ai_engine.Board()
+        for line in ['top', 'middle', 'bottom']:
+            for card_data in game_state_data['board'].get(line, []):
+                board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
+
+    except (KeyError, TypeError) as e:
+        return jsonify({'error': f"Invalid game state data format: {e}"}), 400
+
+    game_state = ai_engine.GameState(
+        selected_cards=selected_cards,
+        board=board,
+        discarded_cards=discarded_cards,
+        ai_settings=ai_settings,
+        deck=ai_engine.Card.get_all_cards() # Initialize with a full deck
+    )
+
+    timeout_event = Event()
+    result = {'move': None}
+
+    ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+    ai_thread.start()
+
+    ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
+
+    if ai_thread.is_alive():
+        timeout_event.set()
+        ai_thread.join()
+        print("AI move timed out")
+        return jsonify({'error': 'AI move timed out'}), 504  # Use 504 Gateway Timeout for timeouts
+
+    move = result['move']
+    if 'error' in move:
+        return jsonify({'error': move['error']}), 500
+
+    # Serialize the move before sending
+    def serialize_card(card):
+        return card.to_dict() if card else None
+
+    def serialize_move(move):
+        return {key: [serialize_card(card) for card in cards] if isinstance(cards, list) else serialize_card(cards)
+                for key, cards in move.items()}
+
+    serialized_move = serialize_move(move)
+
+    # Update game state in session
+    if move:
+        for line in ['top', 'middle', 'bottom']:
+            placed_cards = move.get(line, [])
+            if placed_cards:
+                session['game_state']['board'][line].extend([serialize_card(card) for card in placed_cards
+                                                             if card not in session['game_state']['board'][line]])
+
+        discarded_card = move.get('discarded')
+        if discarded_card:
+            session['game_state']['discarded_cards'].append(serialize_card(discarded_card))
+
+        session.modified = True
+
+    # Save AI progress periodically
+    if cfr_agent and cfr_agent.iterations % 100 == 0:
+        try:
+            cfr_agent.save_progress()
+            print("AI progress saved successfully.")
+        except Exception as e:
+            print(f"Error saving AI progress: {e}")
+
+    return jsonify(serialized_move)
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    app.run(debug=True)
