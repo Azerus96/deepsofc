@@ -1,4 +1,3 @@
-=== FILE: ai_engine.py ===
 from dataclasses import dataclass, field
 from typing import List, Dict, Set, Optional
 from collections import defaultdict
