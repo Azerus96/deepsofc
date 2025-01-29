@@ -7,7 +7,7 @@ from ai_engine import GameState, Card, AIPlayer
 import utils
 import github_utils
 
-app = Flask(__name__name)
+app = Flask(__name__)
 app.secret_key = os.urandom(24)
 ai_player = AIPlayer()
 
@@ -131,4 +131,4 @@ def serialize_move(move):
     }
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
