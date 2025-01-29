@@ -1,347 +1,669 @@
-from dataclasses import dataclass, field
-from typing import List, Dict, Set, Optional
-from collections import defaultdict
-import itertools
 import random
-import pickle
-import math
+import itertools
+from collections import defaultdict
+import utils
+from threading import Event, Thread
+import time
 
-@dataclass
+
 class Card:
-    rank: str
-    suit: str
-
     RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
     SUITS = ['♥', '♦', '♣', '♠']
 
-    def __post_init__(self):
-        if self.rank not in self.RANKS:
-            raise ValueError(f"Invalid rank: {self.rank}")
-        if self.suit not in self.SUITS:
-            raise ValueError(f"Invalid suit: {self.suit}")
+    def __init__(self, rank, suit):
+        if rank not in self.RANKS:
+            raise ValueError(f"Invalid rank: {rank}. Rank must be one of: {self.RANKS}")
+        if suit not in self.SUITS:
+            raise ValueError(f"Invalid suit: {suit}. Suit must be one of: {self.SUITS}")
+        self.rank = rank
+        self.suit = suit
+
+    def __repr__(self):
+        return f"{self.rank}{self.suit}"
+
+    def __eq__(self, other):
+        return self.rank == other.rank and self.suit == other.suit
 
     def __hash__(self):
         return hash((self.rank, self.suit))
 
-@dataclass
+    def to_dict(self):
+        return {'rank': self.rank, 'suit': self.suit}
+
+    @staticmethod
+    def get_all_cards():
+        return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
+
+
+class Hand:
+    def __init__(self, cards=None):
+        self.cards = cards if cards is not None else []
+
+    def add_card(self, card):
+        if not isinstance(card, Card):
+            raise TypeError("card must be an instance of Card")
+        self.cards.append(card)
+
+    def remove_card(self, card):
+        if not isinstance(card, Card):
+            raise TypeError("card must be an instance of Card")
+        try:
+            self.cards.remove(card)
+        except ValueError:
+            print(f"Card {card} not found in hand: {self.cards}")
+
+    def __repr__(self):
+        return ', '.join(map(str, self.cards))
+
+    def __len__(self):
+        return len(self.cards)
+
+    def __iter__(self):
+        return iter(self.cards)
+
+    def __getitem__(self, index):
+        return self.cards[index]
+
+
+class Board:
+    def __init__(self):
+        self.top = []
+        self.middle = []
+        self.bottom = []
+
+    def place_card(self, line, card):
+        if line == 'top':
+            if len(self.top) >= 3:
+                raise ValueError("Top line is full")
+            self.top.append(card)
+        elif line == 'middle':
+            if len(self.middle) >= 5:
+                raise ValueError("Middle line is full")
+            self.middle.append(card)
+        elif line == 'bottom':
+            if len(self.bottom) >= 5:
+                raise ValueError("Bottom line is full")
+            self.bottom.append(card)
+        else:
+            raise ValueError(f"Invalid line: {line}. Line must be one of: 'top', 'middle', 'bottom'")
+
+    def is_full(self):
+        return len(self.top) == 3 and len(self.middle) == 5 and len(self.bottom) == 5
+
+    def clear(self):
+        self.top = []
+        self.middle = []
+        self.bottom = []
+
+    def __repr__(self):
+        return f"Top: {self.top}\nMiddle: {self.middle}\nBottom: {self.bottom}"
+
+    def get_cards(self, line):
+        if line == 'top':
+            return self.top
+        elif line == 'middle':
+            return self.middle
+        elif line == 'bottom':
+            return self.bottom
+        else:
+            raise ValueError("Invalid line specified")
+
+
 class GameState:
-    board: Dict[str, List[Card]] = field(default_factory=lambda: defaultdict(list))
-    discarded: Set[Card] = field(default_factory=set)
-    remaining_deck: List[Card] = field(init=False)
-    fantasy_level: int = 0
-    historical_data: Dict[str, float] = field(default_factory=dict)
+    def __init__(self, selected_cards=None, board=None, discarded_cards=None, ai_settings=None, deck=None):
+        self.selected_cards = Hand(selected_cards) if selected_cards is not None else Hand()
+        self.board = board if board is not None else Board()
+        self.discarded_cards = discarded_cards if discarded_cards is not None else []
+        self.ai_settings = ai_settings if ai_settings is not None else {}
+        self.current_player = 0
+        self.deck = deck if deck is not None else self.create_deck() # Use provided deck or create a new one
+        self.rank_map = {rank: i for i, rank in enumerate(Card.RANKS)}
+        self.suit_map = {suit: i for i, suit in enumerate(Card.SUITS)}
 
-    def __post_init__(self):
-        self._update_remaining()
+    def create_deck(self):
+        """Creates a standard deck of 52 cards."""
+        return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
-    def _update_remaining(self):
-        used = set(itertools.chain(*self.board.values(), self.discarded))
-        all_cards = [Card(r, s) for r in Card.RANKS for s in Card.SUITS]
-        self.remaining_deck = [c for c in all_cards if c not in used]
+    def get_current_player(self):
+        return self.current_player
 
-    def get_valid_actions(self) -> List['Action']:
+    def get_num_cards_to_draw(self):
+        """Returns the number of cards to draw based on the current game state."""
+        placed_cards = sum(len(row) for row in [self.board.top, self.board.middle, self.board.bottom])
+        if placed_cards == 5:
+            return 3
+        elif placed_cards == 7 or placed_cards == 10: # Combined conditions for 7 and 10 cards
+            return 3
+        elif placed_cards >= 13:
+            return 0
+        else:
+            return 0
+
+
+    def get_available_cards(self):
+        """Returns a list of cards that are still available in the deck."""
+
+        used_cards = set(self.discarded_cards + self.board.top + self.board.middle + self.board.bottom + list(self.selected_cards))
+        available_cards = [card for card in self.deck if card not in used_cards]
+        return available_cards
+
+
+    def get_actions(self):
+        """Returns the valid actions for the current state."""
+        num_cards = len(self.selected_cards)
         actions = []
-        lines = {'top': 3, 'middle': 5, 'bottom': 5}
-        
-        for line, limit in lines.items():
-            if len(self.board[line]) < limit:
-                for card in self.remaining_deck:
-                    actions.append(Action('place', card, line))
-        
-        actions.extend([Action('discard', c) for c in self.remaining_deck])
-        return [a for a in actions if self.is_valid_action(a)]
 
-    def is_valid_action(self, action: 'Action') -> bool:
-        if action.action_type == "place":
-            line_limits = {'top': 3, 'middle': 5, 'bottom': 5}
-            return len(self.board[action.line]) < line_limits[action.line]
-        return True
+        if num_cards == 5:
+            # Generate all possible permutations for placing 5 cards
+            for p in itertools.permutations(self.selected_cards.cards):
+                if self.evaluate_hand([p[0]])[0] != "Three of a Kind": # Avoid placing a set on the top row for the first 5 cards
+                    actions.append({
+                        'top': [p[0]],
+                        'middle': [p[1], p[2]],
+                        'bottom': [p[3], p[4]],
+                        'discarded': None
+                    })
+        elif num_cards == 3:
+            # Generate all possible combinations for placing 2 cards and discarding 1
+            for discarded_index in range(3):
+                remaining_cards = [card for i, card in enumerate(self.selected_cards) if i != discarded_index]
+                for top_count in range(min(len(remaining_cards) + 1, 3 - len(self.board.top))):
+                    for middle_count in range(min(len(remaining_cards) - top_count + 1, 5 - len(self.board.middle))):
+                        bottom_count = len(remaining_cards) - top_count - middle_count
+                        if bottom_count <= (5 - len(self.board.bottom)):
+                            action = {
+                                'top': remaining_cards[:top_count],
+                                'middle': remaining_cards[top_count:top_count + middle_count],
+                                'bottom': remaining_cards[top_count + middle_count:],
+                                'discarded': self.selected_cards[discarded_index]
+                            }
+                            actions.append(action)
 
-    def apply_action(self, action: 'Action') -> 'GameState':
-        new_state = GameState(
-            board={k: v.copy() for k, v in self.board.items()},
-            discarded=self.discarded.copy(),
-            fantasy_level=self.fantasy_level,
-            historical_data=self.historical_data
+        elif num_cards >= 13:
+            # Generate permutations for fantasy mode
+            for p in itertools.permutations(self.selected_cards.cards):
+                actions.append({
+                    'top': list(p[:3]),
+                    'middle': list(p[3:8]),
+                    'bottom': list(p[8:13]),
+                    'discarded': list(p[13:])
+                })
+
+        return actions
+
+
+    def apply_action(self, action):
+        """Applies an action to the current state and returns the new state."""
+
+        new_board = Board()
+        new_board.top = self.board.top + action.get('top', [])
+        new_board.middle = self.board.middle + action.get('middle', [])
+        new_board.bottom = self.board.bottom + action.get('bottom', [])
+
+        new_discarded_cards = self.discarded_cards[:]
+        if 'discarded' in action and action['discarded']:
+            if isinstance(action['discarded'], list):
+                new_discarded_cards.extend(action['discarded'])
+            else:
+                new_discarded_cards.append(action['discarded'])
+
+        new_game_state = GameState(
+            selected_cards=Hand(),  # Selected cards are now on the board or discarded
+            board=new_board,
+            discarded_cards=new_discarded_cards,
+            ai_settings=self.ai_settings,
+            deck=self.deck[:] # Pass a copy of the deck
         )
-        
-        if action.action_type == 'place':
-            new_state.board[action.line].append(action.card)
-        elif action.action_type == 'discard':
-            new_state.discarded.add(action.card)
-        
-        new_state._update_remaining()
-        return new_state
 
-    def baseline_evaluation(self) -> float:
-        score = 0.0
-        line_weights = {'top': 1.5, 'middle': 2.0, 'bottom': 3.0}
-        
-        for line, weight in line_weights.items():
-            score += self._evaluate_line(line) * weight
-        
-        score -= len(self.discarded) * 0.5
-        score += self.fantasy_level * 15
-        score -= 1000 if self.is_dead_hand() else 0
-        score += self.historical_data.get(self._state_key(), 0)
-        
+        return new_game_state
+
+
+    def get_information_set(self):
+        """Returns a string representation of the current information set."""
+
+        def card_to_string(card):
+            return str(card)
+
+        def sort_cards(cards):
+            return sorted(cards, key=lambda card: (self.rank_map[card.rank], self.suit_map[card.suit]))
+
+        top_str = ','.join(map(card_to_string, sort_cards(self.board.top)))
+        middle_str = ','.join(map(card_to_string, sort_cards(self.board.middle)))
+        bottom_str = ','.join(map(card_to_string, sort_cards(self.board.bottom)))
+        discarded_str = ','.join(map(card_to_string, sort_cards(self.discarded_cards)))
+        selected_str = ','.join(map(card_to_string, sort_cards(self.selected_cards)))
+
+        return f"T:{top_str}|M:{middle_str}|B:{bottom_str}|D:{discarded_str}|S:{selected_str}"
+
+
+    def get_payoff(self):
+        """Calculates the payoff for the current state."""
+        if not self.is_terminal():
+            raise ValueError("Game is not in a terminal state")
+
+        if self.is_dead_hand():
+            return -self.calculate_royalties()  # Negative royalties for a dead hand
+
+        return self.calculate_royalties()
+
+    def is_dead_hand(self):
+        """Checks if the hand is a dead hand (invalid combination order)."""
+        if not self.board.is_full():
+            return False
+
+        top_rank, _ = self.evaluate_hand(self.board.top)
+        middle_rank, _ = self.evaluate_hand(self.board.middle)
+        bottom_rank, _ = self.evaluate_hand(self.board.bottom)
+
+        return top_rank > middle_rank or middle_rank > bottom_rank
+
+
+    def calculate_royalties(self):
+        """Calculates royalties for the current state based on the rules."""
+
+        if self.is_dead_hand():
+            return 0 # No royalties for a dead hand
+
+        royalties = 0
+        lines = {'top': self.board.top, 'middle': self.board.middle, 'bottom': self.board.bottom}
+
+        for line_name, cards in lines.items():
+            rank, _ = self.evaluate_hand(cards)
+            if line_name == 'top':
+                if rank == 7: # Three of a Kind
+                    royalties += 10 + Card.RANKS.index(cards[0].rank) # Royalty for sets on top
+                elif rank == 8: # One Pair
+                    royalties += self.get_pair_bonus(cards)
+                elif rank == 9: # High Card
+                    royalties += self.get_high_card_bonus(cards)
+            elif line_name == 'middle':
+                if rank <= 6: # Straight or better
+                    royalties += self.get_royalties_for_hand(rank) * 2 # Double royalties for middle
+            elif line_name == 'bottom':
+                if rank <= 6: # Straight or better
+                    royalties += self.get_royalties_for_hand(rank)
+
+        return royalties
+
+    def get_royalties_for_hand(self, hand_rank):
+        if hand_rank == 1: # Royal Flush
+            return 25
+        elif hand_rank == 2: # Straight Flush
+            return 15
+        elif hand_rank == 3: # Four of a Kind
+            return 10
+        elif hand_rank == 4: # Full House
+            return 6
+        elif hand_rank == 5: # Flush
+            return 4
+        elif hand_rank == 6: # Straight
+            return 2
+        return 0
+
+
+    def get_line_score(self, line, cards):
+        """Calculates the score for a specific line based on hand rankings."""
+        if not cards:
+            return 0
+
+        rank, score = self.evaluate_hand(cards)
         return score
 
-    def _evaluate_line(self, line: str) -> float:
-        cards = self.board[line]
-        if not cards:
-            return 0
-        
-        if line == 'top':
-            return self._evaluate_top_line(cards)
-        elif line == 'middle':
-            return self._evaluate_middle_line(cards)
-        return self._evaluate_bottom_line(cards)
 
-    def _evaluate_top_line(self, cards: List[Card]) -> float:
+    def get_pair_bonus(self, cards):
+        """Calculates the bonus for a pair in the top line."""
         if len(cards) != 3:
             return 0
-        if self._is_three_of_a_kind(cards):
-            return 10.0
-        if self._is_one_pair(cards):
-            return self._get_pair_value(cards)
-        return self._get_high_card_value(cards)
-
-    def _evaluate_middle_line(self, cards: List[Card]) -> float:
-        if len(cards) != 5:
-            return len(cards) * 0.5
-        
-        combinations = [
-            (self._is_straight_flush, 30.0),
-            (self._is_four_of_a_kind, 20.0),
-            (self._is_full_house, 12.0),
-            (self._is_flush, 8.0),
-            (self._is_straight, 4.0),
-            (self._is_three_of_a_kind, 2.0)
-        ]
-        
-        for check_fn, value in combinations:
-            if check_fn(cards):
-                return value
-        return 0.5
-
-    def _evaluate_bottom_line(self, cards: List[Card]) -> float:
-        if len(cards) != 5:
-            return len(cards) * 0.3
-        
-        combinations = [
-            (self._is_royal_flush, 25.0),
-            (self._is_straight_flush, 15.0),
-            (self._is_four_of_a_kind, 10.0),
-            (self._is_full_house, 6.0),
-            (self._is_flush, 4.0),
-            (self._is_straight, 2.0)
-        ]
-        
-        for check_fn, value in combinations:
-            if check_fn(cards):
-                return value
-        return 0.3
-
-    def _get_pair_value(self, cards: List[Card]) -> float:
-        rank_counts = defaultdict(int)
-        for card in cards:
-            rank_counts[card.rank] += 1
-        
-        pair_rank = next((r for r, count in rank_counts.items() if count == 2), None)
-        if not pair_rank:
-            return 0.0
-            
-        rank_values = {'2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6, 
-                      '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12, 'A': 13}
-        return rank_values.get(pair_rank, 0) * 0.5
-
-    def _get_high_card_value(self, cards: List[Card]) -> float:
-        rank_values = {'2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6,
-                      '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12, 'A': 13}
-        return max(rank_values[card.rank] for card in cards) * 0.1
-
-    def _is_royal_flush(self, cards: List[Card]) -> bool:
-        return self._is_straight_flush(cards) and \
-               {card.rank for card in cards} == {'10', 'J', 'Q', 'K', 'A'}
-
-    def _is_straight_flush(self, cards: List[Card]) -> bool:
-        return self._is_flush(cards) and self._is_straight(cards)
-
-    def _is_four_of_a_kind(self, cards: List[Card]) -> bool:
         ranks = [card.rank for card in cards]
-        return any(ranks.count(rank) == 4 for rank in set(ranks))
+        for rank in Card.RANKS[::-1]:  # Iterate in reverse to find the highest pair first
+            if ranks.count(rank) == 2:
+                return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0 # Royalty for pairs on top
+        return 0
 
-    def _is_full_house(self, cards: List[Card]) -> bool:
-        ranks = [card.rank for card in cards]
-        return len(set(ranks)) == 2 and \
-               any(ranks.count(rank) == 3 for rank in set(ranks))
 
-    def _is_flush(self, cards: List[Card]) -> bool:
-        return len({card.suit for card in cards}) == 1
-
-    def _is_straight(self, cards: List[Card]) -> bool:
-        rank_values = {'2': 1, '3': 2, '4': 3, '5': 4, '6': 5, '7': 6,
-                      '8': 7, '9': 8, '10': 9, 'J': 10, 'Q': 11, 'K': 12, 'A': 13}
-        values = sorted(rank_values[card.rank] for card in cards)
-        
-        # Check for wheel straight (A-2-3-4-5)
-        if values == [1, 2, 3, 4, 5]:
-            return True
-            
-        return all(values[i] == values[i-1] + 1 for i in range(1, 5))
-
-    def _is_three_of_a_kind(self, cards: List[Card]) -> bool:
-        ranks = [card.rank for card in cards]
-        return any(ranks.count(rank) == 3 for rank in set(ranks))
-
-    def _is_one_pair(self, cards: List[Card]) -> bool:
-        ranks = [card.rank for card in cards]
-        return any(ranks.count(rank) == 2 for rank in set(ranks))
-
-    def _line_strength(self, line: str) -> int:
-        strength_order = [
-            'royal_flush',
-            'straight_flush',
-            'four_of_a_kind',
-            'full_house',
-            'flush',
-            'straight',
-            'three_of_a_kind',
-            'two_pair',
-            'one_pair',
-            'high_card'
-        ]
-        
-        cards = self.board[line]
-        if not cards:
+    def get_high_card_bonus(self, cards):
+        """Calculates the bonus for a high card in the top line."""
+        if len(cards) != 3 or not all(isinstance(card, Card) for card in cards):
             return 0
-            
-        checks = [
-            (self._is_royal_flush, 'royal_flush'),
-            (self._is_straight_flush, 'straight_flush'),
-            (self._is_four_of_a_kind, 'four_of_a_kind'),
-            (self._is_full_house, 'full_house'),
-            (self._is_flush, 'flush'),
-            (self._is_straight, 'straight'),
-            (self._is_three_of_a_kind, 'three_of_a_kind'),
-            (self._is_one_pair, 'one_pair')
-        ]
-        
-        for check_fn, strength in checks:
-            if check_fn(cards):
-                return len(strength_order) - strength_order.index(strength)
-        return 1  # high_card
+        ranks = [card.rank for card in cards]
+        if len(set(ranks)) == 3:  # Three different ranks
+            high_card = max(ranks, key=Card.RANKS.index)
+            return 1 if high_card == 'A' else 0 # Royalty for high card A on top
+        return 0
 
-@dataclass
-class Action:
-    action_type: str
-    card: Card
-    line: Optional[str] = None
-    reason: Optional[str] = None
 
-class AIPlayer:
-    def __init__(self, cfr_data_path='cfr_data.pkl'):
-        self.historical_data = self._load_cfr_data(cfr_data_path)
-        self.learned_strategies = defaultdict(dict)
-        self.risk_factor = 1.2
-        self.future_discount = 0.7
+    def get_fantasy_bonus(self):
+        """Calculates the bonus for fantasy mode."""
+        bonus = 0
+        top_rank, _ = self.evaluate_hand(self.board.top)
 
-    def _load_cfr_data(self, path: str) -> Dict:
-        try:
-            with open(path, 'rb') as f:
-                data = pickle.load(f)
-                return data.get('historical', defaultdict(float))
-        except (FileNotFoundError, EOFError):
-            return defaultdict(float)
+        if top_rank <= 8 and self.board.top[0].rank in ['Q', 'K', 'A']: # QQ, KK, AA and better
+            if self.ai_settings.get('fantasyType') == 'progressive':
+                if self.board.top[0].rank == 'Q':
+                    bonus += 14 # 14 cards for QQ
+                elif self.board.top[0].rank == 'K':
+                    bonus += 15 # 15 cards for KK
+                elif self.board.top[0].rank == 'A':
+                    bonus += 16 # 16 cards for AA
+                elif top_rank == 7: # Set
+                    bonus += 17 # 17 cards for set from 222 to AAA
+            else: # Normal fantasy
+                bonus += 14 # 14 cards
 
-    def get_action(self, state: GameState) -> Action:
-        valid_actions = state.get_valid_actions()
-        if not valid_actions:
-            return Action('discard', random.choice(list(state.remaining_deck)), reason='No valid actions')
-        
-        state_key = state._state_key()
-        if state_key in self.learned_strategies:
-            return self._best_historical_action(state_key)
-        
-        return self._calculate_best_action(state, valid_actions)
+            if self.is_fantasy_repeat():
+                bonus += 14 # Fantasy repeat - 14 cards (regardless of type)
 
-    def _best_historical_action(self, state_key: str) -> Action:
-        strategy = self.learned_strategies[state_key]
-        best_action = max(strategy, key=lambda k: strategy[k]['expected_value'])
-        return Action(
-            action_type=best_action['action_type'],
-            card=best_action['card'],
-            line=best_action.get('line'),
-            reason='Historical strategy'
-        )
+        return bonus
 
-    def _calculate_best_action(self, state: GameState, valid_actions: List[Action]) -> Action:
-        action_scores = []
-        for action in valid_actions:
-            projected_state = state.apply_action(action)
-            score = self._evaluate_state(projected_state)
-            action_scores.append((action, score))
-        
-        best_action = max(action_scores, key=lambda x: x[1])[0]
-        best_action.reason = f"Calculated score: {action_scores[0][1]:.2f}"
-        return best_action
+    def is_fantasy_repeat(self):
+        """Checks if the conditions for fantasy repeat are met."""
+        top_rank, _ = self.evaluate_hand(self.board.top)
+        bottom_rank, _ = self.evaluate_hand(self.board.bottom)
 
-    def _evaluate_state(self, state: GameState) -> float:
-        base_score = state.baseline_evaluation()
-        future_score = self._estimate_future_potential(state) * self.future_discount
-        risk_score = self._calculate_risk_factor(state) * self.risk_factor
-        return base_score + future_score - risk_score
+        if top_rank == 7: # Set in top row
+            return True
+        if bottom_rank <= 3: # Four of a Kind or better in bottom row
+            return True
 
-    def _estimate_future_potential(self, state: GameState) -> float:
-        if len(state.remaining_deck) < 5:
-            return 0.0
-            
-        needed_combinations = self._identify_needed_combinations(state)
-        outs = sum(1 for card in state.remaining_deck if self._is_card_valuable(card, needed_combinations))
-        return math.log(outs + 1) * 2.0
-
-    def _identify_needed_combinations(self, state: GameState) -> Dict[str, Set[str]]:
-        needed = defaultdict(set)
-        for line in ['top', 'middle', 'bottom']:
-            current = state.board[line]
-            if len(current) < (3 if line == 'top' else 5):
-                needed[line].update(self._get_missing_ranks(current))
-        return needed
-
-    def _get_missing_ranks(self, cards: List[Card]) -> Set[str]:
-        if len(cards) < 1:
-            return set(Card.RANKS)
-        return {r for r in Card.RANKS if r not in {c.rank for c in cards}}
-
-    def _is_card_valuable(self, card: Card, needed: Dict[str, Set[str]]) -> bool:
-        for line in needed.values():
-            if card.rank in line:
-                return True
         return False
 
-    def _calculate_risk_factor(self, state: GameState) -> float:
-        remaining = len(state.remaining_deck)
-        if remaining < 10:
-            return 3.0 - (remaining * 0.2)
-        return 0.5 + (state.fantasy_level * 0.3)
+
+    def evaluate_hand(self, cards):
+        """Evaluates the hand and returns a rank (lower is better) and a score."""
+
+        if not cards or not all(isinstance(card, Card) for card in cards):
+            return 11, 0 # Return a low rank for invalid hands
+
+        n = len(cards)
+        if n == 5:
+            if self.is_royal_flush(cards):
+                return 1, 25
+            if self.is_straight_flush(cards):
+                return 2, 15
+            if self.is_four_of_a_kind(cards):
+                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 4][0]
+                return 3, 10 + Card.RANKS.index(rank) / 100
+            if self.is_full_house(cards):
+                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 3][0]
+                return 4, 6 + Card.RANKS.index(rank) / 100
+            if self.is_flush(cards):
+                score = 4 + sum(Card.RANKS.index(card.rank) for card in cards) / 1000  # Adjusted score for Flush
+                return 5, score
+            if self.is_straight(cards):
+                score = 2 + sum(Card.RANKS.index(card.rank) for card in cards) / 1000  # Adjusted score for Straight
+                return 6, score
+            if self.is_three_of_a_kind(cards):
+                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 3][0]
+                return 7, 2 + Card.RANKS.index(rank) / 100
+            if self.is_two_pair(cards):
+                ranks = sorted([Card.RANKS.index(card.rank) for card in cards if [card.rank for card in cards].count(card.rank) == 2], reverse=True)
+                return 8, sum(ranks) / 1000  # Adjusted score for Two Pair
+            if self.is_one_pair(cards):
+                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 2][0]
+                return 9, Card.RANKS.index(rank) / 1000  # Adjusted score for One Pair
+            # High Card
+            score = sum(Card.RANKS.index(card.rank) for card in cards) / 10000 # Adjusted score for High Card
+            return 10, score
+
+        elif n == 3:
+            if self.is_three_of_a_kind(cards):
+                rank = cards[0].rank  # All cards have the same rank in a set
+                return 7, 10 + Card.RANKS.index(rank)
+            if self.is_one_pair(cards):
+                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 2][0]
+                return 8, self.get_pair_bonus(cards)  # Use pair bonus for 3-card hands
+            # High Card
+            return 9, self.get_high_card_bonus(cards) # Use high card bonus for 3-card hands
+
+        else:
+            return 11, 0  # Return a low rank for invalid hands
+
+
+    def is_royal_flush(self, cards):
+        if not self.is_flush(cards):
+            return False
+        ranks = sorted([Card.RANKS.index(card.rank) for card in cards])
+        return ranks == [8, 9, 10, 11, 12]  # 10, J, Q, K, A
+
+    def is_straight_flush(self, cards):
+        return self.is_straight(cards) and self.is_flush(cards)
+
+    def is_four_of_a_kind(self, cards):
+        ranks = [card.rank for card in cards]
+        return any(ranks.count(r) == 4 for r in ranks)
+
+    def is_full_house(self, cards):
+        ranks = [card.rank for card in cards]
+        return any(ranks.count(r) == 3 for r in ranks) and any(ranks.count(r) == 2 for r in ranks)
+
+    def is_flush(self, cards):
+        suits = [card.suit for card in cards]
+        return len(set(suits)) == 1
+
+    def is_straight(self, cards):
+        ranks = sorted([Card.RANKS.index(card.rank) for card in cards])
+        if ranks == [0, 1, 2, 3, 12]:  # Special case for A, 2, 3, 4, 5
+            return True
+        return all(ranks[i + 1] - ranks[i] == 1 for i in range(len(ranks) - 1))
+
+    def is_three_of_a_kind(self, cards):
+        ranks = [card.rank for card in cards]
+        return any(ranks.count(r) == 3 for r in ranks)
+
+    def is_two_pair(self, cards):
+        ranks = [card.rank for card in cards]
+        pairs = [r for r in set(ranks) if ranks.count(r) == 2]
+        return len(pairs) == 2
+
+    def is_one_pair(self, cards):
+        ranks = [card.rank for card in cards]
+        return any(ranks.count(r) == 2 for r in ranks)
+
+
+class CFRNode:
+    def __init__(self, actions):
+        self.regret_sum = defaultdict(float)
+        self.strategy_sum = defaultdict(float)
+        self.actions = actions
+
+    def get_strategy(self, realization_weight):
+        normalizing_sum = 0
+        strategy = defaultdict(float)
+        for a in self.actions:
+            strategy[a] = self.regret_sum[a] if self.regret_sum[a] > 0 else 0
+            normalizing_sum += strategy[a]
+
+        for a in self.actions:
+            if normalizing_sum > 0:
+                strategy[a] /= normalizing_sum
+            else:
+                strategy[a] = 1.0 / len(self.actions)
+            self.strategy_sum[a] += realization_weight * strategy[a]
+        return strategy
+
+    def get_average_strategy(self):
+        avg_strategy = defaultdict(float)
+        normalizing_sum = sum(self.strategy_sum.values())
+        if normalizing_sum > 0:
+            for a in self.actions:
+                avg_strategy[a] = self.strategy_sum[a] / normalizing_sum
+        else:
+            for a in self.actions:
+                avg_strategy[a] = 1.0 / len(self.actions)
+        return avg_strategy
+
+
+class CFRAgent:
+    def __init__(self, iterations=1000, stop_threshold=0.001):
+        self.nodes = {}
+        self.iterations = iterations
+        self.stop_threshold = stop_threshold
+
+    def cfr(self, game_state, p0, p1, timeout_event, result):
+        if timeout_event.is_set():
+            print("CFR timed out!")
+            return 0
+
+        if game_state.is_terminal():
+            return game_state.get_payoff()
+
+        player = game_state.get_current_player()
+        info_set = game_state.get_information_set()
+
+        if info_set not in self.nodes:
+            actions = game_state.get_actions()
+            if not actions:
+                return 0
+            self.nodes[info_set] = CFRNode(actions)
+        node = self.nodes[info_set]
+
+        strategy = node.get_strategy(p0 if player == 0 else p1)
+        util = defaultdict(float)
+        node_util = 0
+
+        for a in node.actions:
+            if timeout_event.is_set():
+                print("CFR timed out during action loop!")
+                return 0
+
+            next_state = game_state.apply_action(a)
+            if player == 0:
+                util[a] = -self.cfr(next_state, p0 * strategy[a], p1, timeout_event, result)
+            else:
+                util[a] = -self.cfr(next_state, p0, p1 * strategy[a], timeout_event, result)
+            node_util += strategy[a] * util[a]
+
+        if player == 0:
+            for a in node.actions:
+                node.regret_sum[a] += p1 * (util[a] - node_util)
+        else:
+            for a in node.actions:
+                node.regret_sum[a] += p0 * (util[a] - node_util)
+
+        return node_util
+
+    def train(self, timeout_event, result):
+        for i in range(self.iterations):
+            if timeout_event.is_set():
+                print(f"Training interrupted after {i} iterations due to timeout.")
+                break  # Exit the loop if timeout is signaled
+
+            all_cards = Card.get_all_cards()
+            random.shuffle(all_cards)
+            game_state = GameState(deck=all_cards) # Pass the shuffled deck to GameState
+            game_state.selected_cards = Hand(all_cards[:5])
+            self.cfr(game_state, 1, 1, timeout_event, result)
+
+            if (i + 1) % 100 == 0: # Check every 100 iterations
+                print(f"Iteration {i+1} of {self.iterations} complete.")
+                if self.check_convergence():
+                    print("CFR agent converged after", i + 1, "iterations.")
+                    break
+
+    def check_convergence(self):
+        for node in self.nodes.values():
+            avg_strategy = node.get_average_strategy()
+            for action, prob in avg_strategy.items():
+                if abs(prob - 1.0 / len(node.actions)) > self.stop_threshold:
+                    return False
+        return True
+
+    def get_move(self, game_state, num_cards, timeout_event, result):
+        print("Inside get_move")
+        actions = game_state.get_actions()
+        if not actions:
+            result['move'] = {'error': 'Нет доступных ходов'}
+            return
+
+        info_set = game_state.get_information_set()
+        if info_set in self.nodes:
+            strategy = self.nodes[info_set].get_average_strategy()
+            best_move = max(strategy, key=strategy.get) if strategy else None  # Choose the action with the highest probability
+        else:
+            best_move = random.choice(actions) if actions else None # Fallback to random if no strategy available
+
+        result['move'] = best_move
+
+    def evaluate_move(self, game_state, action, timeout_event):
+        next_state = game_state.apply_action(action)
+        info_set = next_state.get_information_set()
+
+        if info_set in self.nodes:
+            node = self.nodes[info_set]
+            strategy = node.get_average_strategy()
+            expected_value = 0
+            for a, prob in strategy.items():
+                if timeout_event.is_set():
+                    return 0  # Return 0 if timeout occurred
+                expected_value += prob * self.get_action_value(next_state, a, timeout_event)
+            return expected_value
+        else:
+            return self.shallow_search(next_state, 2, timeout_event)
+
+    def shallow_search(self, state, depth, timeout_event):
+        if depth == 0 or state.is_terminal() or timeout_event.is_set():
+            return self.baseline_evaluation(state)
+
+        best_value = float('-inf')
+        for action in state.get_actions():
+            if timeout_event.is_set():
+                return 0  # Return 0 if timeout occurred
+            value = -self.shallow_search(state.apply_action(action), depth - 1, timeout_event)
+            best_value = max(best_value, value)
+        return best_value
+
+    def get_action_value(self, state, action, timeout_event):
+        num_simulations = 10
+        total_score = 0
+
+        for _ in range(num_simulations):
+            if timeout_event.is_set():
+                return 0  # Return 0 if timeout occurred
+            simulated_state = state.apply_action(action)
+            while not simulated_state.is_terminal():
+                actions = simulated_state.get_actions()
+                if not actions:
+                    break  # No valid actions available
+                random_action = random.choice(actions)
+                simulated_state = simulated_state.apply_action(random_action)
+            total_score += self.baseline_evaluation(simulated_state)
+
+        return total_score / num_simulations if num_simulations > 0 else 0
+
+
+    def baseline_evaluation(self, state):
+        """Baseline heuristic evaluation of the game state."""
+        if state.is_dead_hand():
+            return -1000 # Large negative penalty for dead hands
+
+        score = 0
+        score += state.get_line_score('top', state.board.top)
+        score += state.get_line_score('middle', state.board.middle)
+        score += state.get_line_score('bottom', state.board.bottom)
+
+        # Add some logic to favor better combinations on higher lines
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.top) * 0.5
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.middle) * 0.3
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.bottom) * 0.2
+
+        return score
 
     def save_progress(self):
         data = {
-            'historical': self.historical_data,
-            'strategies': self.learned_strategies
+            'nodes': self.nodes,
+            'iterations': self.iterations,
+            'stop_threshold': self.stop_threshold
         }
-        with open('cfr_data.pkl', 'wb') as f:
-            pickle.dump(data, f)
+        utils.save_data(data, 'cfr_data.pkl')
 
-    def update_historical_data(self, state: GameState, action: Action, reward: float):
-        state_key = state._state_key()
-        action_key = f"{action.action_type}_{action.card.rank}{action.card.suit}"
-        self.historical_data[state_key] = self.historical_data.get(state_key, 0) + reward
 
-# Пример использования
-if __name__ == "__main__":
-    ai = AIPlayer()
-    test_state = GameState()
-    action = ai.get_action(test_state)
-    print(f"Recommended action: {action}")
+    def load_progress(self):
+        data = utils.load_data('cfr_data.pkl')
+        if data:
+            self.nodes = data['nodes']
+            self.iterations = data['iterations']
+            self.stop_threshold = data.get('stop_threshold', 0.001) # Default value if not present
+
+
+# Creating an instance of the agent
+cfr_agent = CFRAgent()
