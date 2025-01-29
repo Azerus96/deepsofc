@@ -1,4 +1,3 @@
-=== FILE: app.py ===
 from flask import Flask, render_template, jsonify, session, request
 from threading import Thread, Event
 import os
