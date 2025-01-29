@@ -1,41 +1,29 @@
 import pickle
 import os
-import logging
 
 def save_data(data, filename):
-    """Сохраняет данные в файл с обработкой ошибок"""
+    """Saves data to a file using pickle."""
     try:
         with open(filename, 'wb') as f:
-            pickle.dump(data, f)
-        logging.info(f"Данные сохранены в {filename}")
-    except Exception as e:
-        logging.error(f"Ошибка сохранения данных: {str(e)}")
-        raise
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL) # Use highest protocol for better performance
+        print(f"Data saved to {filename}")
+        return True # Indicate success
+    except (pickle.PickleError, OSError, Exception) as e:
+        print(f"Error saving data to {filename}: {e}")
+        return False # Indicate failure
+
 
 def load_data(filename):
-    """Загружает данные из файла с обработкой ошибок"""
+    """Loads data from a file using pickle."""
+    if not os.path.exists(filename):
+        print(f"File {filename} not found.")
+        return None
+
     try:
         with open(filename, 'rb') as f:
-            return pickle.load(f)
-    except FileNotFoundError:
-        logging.warning(f"Файл {filename} не найден")
+            data = pickle.load(f)
+            print(f"Data loaded from {filename}")
+            return data
+    except (pickle.PickleError, OSError, EOFError, Exception) as e:
+        print(f"Error loading data from {filename}: {e}")
         return None
-    except Exception as e:
-        logging.error(f"Ошибка загрузки данных: {str(e)}")
-        return None
-
-def validate_card(card_data):
-    """Валидация структуры данных карты"""
-    required = ['rank', 'suit']
-    return all(key in card_data for key in required)
-
-def log_game_action(action):
-    """Логирование игровых действий"""
-    logging.info(f"Action: {action}")
-
-def backup_data(data, prefix='backup'):
-    """Создание резервной копии данных"""
-    timestamp = time.strftime("%Y%m%d-%H%M%S")
-    filename = f"{prefix}_{timestamp}.pkl"
-    save_data(data, filename)
-    return filename
