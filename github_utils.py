@@ -1,4 +1,3 @@
-=== FILE: github_utils.py ===
 from github import Github, GithubException
 import base64
 import os
