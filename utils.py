@@ -1,4 +1,3 @@
-=== FILE: utils.py ===
 import pickle
 import os
 import logging
