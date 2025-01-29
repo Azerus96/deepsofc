@@ -15,7 +15,7 @@ def save_progress_to_github(filename, repo_name, branch='main'):
     """Полная реализация сохранения на GitHub"""
     try:
         g = connect_to_github()
-        repo = g.get_user().get_repo(repo_name)
+        repo = g.get_user(Azerus96).get_repo(deepsofc)
         
         with open(filename, 'rb') as f:
             content = base64.b64encode(f.read()).decode('utf-8')
