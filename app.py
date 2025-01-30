@@ -32,11 +32,9 @@ def initialize_ai_agent(ai_settings):
 # Initialize AI agent with default settings on app start
 initialize_ai_agent({})
 
-
 @app.route('/')
 def home():
     return render_template('index.html')
-
 
 @app.route('/training')
 def training():
@@ -63,7 +61,6 @@ def training():
 
     return render_template('training.html', game_state=session['game_state'])
 
-
 @app.route('/update_state', methods=['POST'])
 def update_state():
     if not request.is_json:
@@ -83,7 +80,6 @@ def update_state():
 
     return jsonify({'status': 'success'})
 
-
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
@@ -97,6 +93,7 @@ def ai_move():
     ai_settings = game_state_data.get('ai_settings', {})
 
     try:
+        # Deserialize cards when loading game state from the session
         selected_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data['selected_cards']]
         discarded_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data.get('discarded_cards', [])]
         board = ai_engine.Board()
@@ -143,13 +140,13 @@ def ai_move():
 
     serialized_move = serialize_move(move)
 
-    # Update game state in session
+    # Update game state in session (using serialized cards)
     if move:
         for line in ['top', 'middle', 'bottom']:
             placed_cards = move.get(line, [])
             if placed_cards:
                 session['game_state']['board'][line].extend([serialize_card(card) for card in placed_cards
-                                                             if card not in session['game_state']['board'][line]])
+                                                            if serialize_card(card) not in session['game_state']['board'][line]])  # Compare serialized cards
 
         discarded_card = move.get('discarded')
         if discarded_card:
@@ -166,7 +163,6 @@ def ai_move():
             print(f"Error saving AI progress: {e}")
 
     return jsonify(serialized_move)
-
 
 if __name__ == '__main__':
     app.run(debug=True)
