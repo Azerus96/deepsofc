@@ -83,7 +83,7 @@ def update_state():
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
-    if cfr_agent is None:  # Check if the agent is initialized
+    if cfr_agent is None:
         return jsonify({'error': 'AI agent not initialized'}), 500
 
     game_state_data = request.get_json()
@@ -93,13 +93,36 @@ def ai_move():
     ai_settings = game_state_data.get('ai_settings', {})
 
     try:
-        # Deserialize cards when loading game state from the session
         selected_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data['selected_cards']]
         discarded_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data.get('discarded_cards', [])]
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
             for card_data in game_state_data['board'].get(line, []):
                 board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
+
+        # Check if the board is full before the AI makes a move
+        if board.is_full():
+            # Calculate royalties and update AI progress
+            game_state = ai_engine.GameState(
+                selected_cards=selected_cards,
+                board=board,
+                discarded_cards=discarded_cards,
+                ai_settings=ai_settings,
+                deck=ai_engine.Card.get_all_cards()
+            )
+            payoff = game_state.get_payoff()
+            print(f"Game over. Payoff: {payoff}")
+
+            # Update AI progress based on the game result
+            if cfr_agent:
+                try:
+                    cfr_agent.update_strategy_for_game_over(game_state, payoff)
+                    cfr_agent.save_progress()
+                    print("AI progress updated and saved successfully.")
+                except Exception as e:
+                    print(f"Error updating AI progress: {e}")
+
+            return jsonify({'message': 'Game over', 'payoff': payoff}), 200
 
     except (KeyError, TypeError) as e:
         return jsonify({'error': f"Invalid game state data format: {e}"}), 400
@@ -109,7 +132,7 @@ def ai_move():
         board=board,
         discarded_cards=discarded_cards,
         ai_settings=ai_settings,
-        deck=ai_engine.Card.get_all_cards() # Initialize with a full deck
+        deck=ai_engine.Card.get_all_cards()
     )
 
     timeout_event = Event()
@@ -124,13 +147,12 @@ def ai_move():
         timeout_event.set()
         ai_thread.join()
         print("AI move timed out")
-        return jsonify({'error': 'AI move timed out'}), 504  # Use 504 Gateway Timeout for timeouts
+        return jsonify({'error': 'AI move timed out'}), 504
 
     move = result['move']
     if 'error' in move:
         return jsonify({'error': move['error']}), 500
 
-    # Serialize the move before sending
     def serialize_card(card):
         return card.to_dict() if card else None
 
@@ -140,13 +162,24 @@ def ai_move():
 
     serialized_move = serialize_move(move)
 
-    # Update game state in session (using serialized cards)
+    # Update game state in session (using serialized cards and checking for occupied slots)
     if move:
         for line in ['top', 'middle', 'bottom']:
             placed_cards = move.get(line, [])
             if placed_cards:
-                session['game_state']['board'][line].extend([serialize_card(card) for card in placed_cards
-                                                            if serialize_card(card) not in session['game_state']['board'][line]])  # Compare serialized cards
+                for card in placed_cards:
+                    serialized_card = serialize_card(card)
+                    # Find the next available slot in the line
+                    slot_index = 0
+                    while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
+                        slot_index += 1
+
+                    if slot_index < len(session['game_state']['board'][line]):
+                        session['game_state']['board'][line][slot_index] = serialized_card
+                    elif line == 'top' and slot_index < 3:  # Fill up to 3 slots in 'top'
+                        session['game_state']['board'][line].append(serialized_card)
+                    elif (line == 'middle' or line == 'bottom') and slot_index < 5:  # Fill up to 5 slots in 'middle' and 'bottom'
+                        session['game_state']['board'][line].append(serialized_card)
 
         discarded_card = move.get('discarded')
         if discarded_card:
