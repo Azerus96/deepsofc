@@ -175,6 +175,7 @@
             cursor: pointer;
             user-select: none;
             -webkit-user-select: none;
+            z-index: 2;
         }
 
         .card[data-suit="♥"], .card[data-suit="♦"] {
@@ -213,6 +214,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             user-select: none;
+            -webkit-user-select: none;
             height: 45px;
             display: flex;
             align-items: center;
@@ -261,6 +263,8 @@
             align-items: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            background-color: transparent;
+            position: relative;
         }
 
         .combination-slot:hover {
@@ -382,7 +386,6 @@
     <button class="fullscreen-btn" onclick="toggleFullScreen()">
         <span class="material-icons">fullscreen</span>
     </button>
-
     <div class="controls">
         <button onclick="goToGame()">К игре</button>
         <button onclick="resetTraining()">Сброс</button>
@@ -492,26 +495,6 @@
                 card.remove();
             });
 
-            card.addEventListener('click', () => {
-                if (selectedRank && selectedSuit) {
-                    const newCardKey = `${selectedRank}${selectedSuit}`;
-                    if (!unavailableCards.has(newCardKey)) {
-                        const oldCardKey = `${card.dataset.rank}${card.dataset.suit}`;
-                        if (unavailableCards.has(oldCardKey)) {
-                            unavailableCards.delete(oldCardKey);
-                        }
-                        card.dataset.rank = selectedRank;
-                        card.dataset.suit = selectedSuit;
-                        card.textContent = newCardKey;
-                        card.style.color = (selectedSuit === '♥' || selectedSuit === '♦') ? '#e44145' : '#2d2d2d';
-
-                        selectedRank = null;
-                        selectedSuit = null;
-                        document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected'));
-                    }
-                }
-            });
-
             card.draggable = true;
             card.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', '');
@@ -585,27 +568,21 @@
                 }
             }
 
-            createAndPlaceCard(); // Добавляем вызов функции создания карты
-        }
-
-        function createAndPlaceCard() {
             if (selectedRank && selectedSuit) {
-                const cardData = { rank: selectedRank, suit: selectedSuit };
-                const card = createCard(cardData);
-                const combinationArea = document.getElementById('combination-area');
-                const freeSlot = combinationArea.querySelector('.combination-slot:not(.taken)');
+                const cardKey = `${selectedRank}${selectedSuit}`;
+                if (!unavailableCards.has(cardKey)) {
+                    const combinationArea = document.getElementById('combination-area');
+                    const emptySlot = combinationArea.querySelector('.combination-slot:not(.taken)');
+                    if (emptySlot) {
+                        const card = createCard({ rank: selectedRank, suit: selectedSuit });
+                        emptySlot.appendChild(card);
+                        unavailableCards.add(cardKey);
+                        emptySlot.classList.add('taken');
 
-                if (freeSlot) {
-                    freeSlot.appendChild(card);
-                    freeSlot.classList.add('taken');
-                    const cardKey = `${selectedRank}${selectedSuit}`;
-                    unavailableCards.add(cardKey);
-                    updateSelectorItemAvailability(selectedRank, selectedSuit);
-                    selectedRank = null;
-                    selectedSuit = null;
-                    document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected'));
-                } else {
-                    console.warn("All combination slots are taken!");
+                        selectedRank = null;
+                        selectedSuit = null;
+                        document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected'));
+                    }
                 }
             }
         }
@@ -649,7 +626,7 @@
             combinationArea.innerHTML = '';
             combinationArea.appendChild(fragment);
 
-            unavailableCards.clear();
+            unavailableCards.clear(); // Очищаем unavailableCards
             selectedRank = null;
             selectedSuit = null;
             document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected', 'unavailable'));
@@ -758,9 +735,10 @@
 
                 if (data.discarded && numCards === 3) {
                     const discardedCardKey = `${data.discarded.rank}${data.discarded.suit}`;
-                    unavailableCards.add(discardedCardKey);
-                    updateSelectorItemAvailability(data.discarded.rank, data.discarded.suit);
+                    unavailableCards.add(discardedCardKey); // Добавляем сброшенную карту в недоступные
+                    updateSelectorItemAvailability(data.discarded.rank, data.discarded.suit); // Обновляем статус доступности селекторного элемента
 
+                    // Удаляем сброшенную карту из области комбинации (если есть)
                     document.querySelectorAll('.combination-area .card').forEach(card => {
                         if (`${card.dataset.rank}${card.dataset.suit}` === discardedCardKey) {
                             card.parentElement.classList.remove('taken');
@@ -769,13 +747,28 @@
                     });
                 }
 
-                // Обновляем область комбинации с выбранными картами
+                // Очищаем область комбинации и сбрасываем слоты
                 const combinationArea = document.getElementById('combination-area');
                 combinationArea.innerHTML = '';
-                gameState.selected_cards.forEach(card => {
-                    const cardElement = createCard(card);
-                    combinationArea.appendChild(cardElement); // Добавляем каждую карту в область комбинаций
-                });
+                for (let i = 0; i < 17; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'combination-slot';
+                    slot.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                    });
+                    slot.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                                                const cardData = JSON.parse(e.dataTransfer.getData('card'));
+                        const cardKey = `${cardData.rank}${cardData.suit}`;
+                        if (!unavailableCards.has(cardKey) && slot.children.length === 0) {
+                            const card = createCard(cardData);
+                            slot.appendChild(card);
+                            unavailableCards.add(cardKey);
+                            slot.classList.add('taken');
+                        }
+                    });
+                    combinationArea.appendChild(slot);
+                }
 
                 saveGameStateToSession();
             })
