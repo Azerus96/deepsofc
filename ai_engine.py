@@ -552,7 +552,7 @@ class CFRAgent:
         for node in self.nodes.values():
             avg_strategy = node.get_average_strategy()
             for action, prob in avg_strategy.items():
-                                if abs(prob - 1.0 / len(node.actions)) > self.stop_threshold:
+                if abs(prob - 1.0 / len(node.actions)) > self.stop_threshold:
                     return False
         return True
 
