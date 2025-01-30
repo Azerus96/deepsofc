@@ -42,7 +42,7 @@ def training():
     if 'game_state' not in session:
         session['game_state'] = {
             'selected_cards': [],
-            'board': {'top': [], 'middle': [], 'bottom': []},
+            'board': {'top': [None] * 3, 'middle': [None] * 5, 'bottom': [None] * 5},
             'discarded_cards': [],
             'ai_settings': {
                 'fantasyType': 'normal',
@@ -98,7 +98,8 @@ def ai_move():
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
             for card_data in game_state_data['board'].get(line, []):
-                board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
+                if card_data: # Check if the slot is not empty
+                    board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
 
         # Check if the board is full before the AI makes a move
         if board.is_full():
@@ -162,24 +163,22 @@ def ai_move():
 
     serialized_move = serialize_move(move)
 
-    # Update game state in session (using serialized cards and checking for occupied slots)
+    # Update game state in session (correctly handling occupied slots)
     if move:
         for line in ['top', 'middle', 'bottom']:
             placed_cards = move.get(line, [])
-            if placed_cards:
-                for card in placed_cards:
-                    serialized_card = serialize_card(card)
-                    # Find the next available slot in the line
-                    slot_index = 0
-                    while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
-                        slot_index += 1
+            slot_index = 0  # Start checking from the first slot in each line
+            for card in placed_cards:
+                serialized_card = serialize_card(card)
 
-                    if slot_index < len(session['game_state']['board'][line]):
-                        session['game_state']['board'][line][slot_index] = serialized_card
-                    elif line == 'top' and slot_index < 3:  # Fill up to 3 slots in 'top'
-                        session['game_state']['board'][line].append(serialized_card)
-                    elif (line == 'middle' or line == 'bottom') and slot_index < 5:  # Fill up to 5 slots in 'middle' and 'bottom'
-                        session['game_state']['board'][line].append(serialized_card)
+                # Find the next available slot in the line
+                while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
+                    slot_index += 1
+
+                # Place the card if an available slot is found
+                if slot_index < len(session['game_state']['board'][line]):
+                    session['game_state']['board'][line][slot_index] = serialized_card
+                    slot_index += 1  # Move to the next slot for the next card
 
         discarded_card = move.get('discarded')
         if discarded_card:
