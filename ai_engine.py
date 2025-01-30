@@ -5,7 +5,6 @@ import utils
 from threading import Event, Thread
 import time
 
-
 class Card:
     RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
     SUITS = ['♥', '♦', '♣', '♠']
@@ -22,7 +21,9 @@ class Card:
         return f"{self.rank}{self.suit}"
 
     def __eq__(self, other):
-        return self.rank == other.rank and self.suit == other.suit
+        if isinstance(other, dict):
+            return self.rank == other.get('rank') and self.suit == other.get('suit')
+        return isinstance(other, Card) and self.rank == other.rank and self.suit == other.suit
 
     def __hash__(self):
         return hash((self.rank, self.suit))
@@ -31,9 +32,12 @@ class Card:
         return {'rank': self.rank, 'suit': self.suit}
 
     @staticmethod
+    def from_dict(card_dict):
+        return Card(card_dict['rank'], card_dict['suit'])
+
+    @staticmethod
     def get_all_cards():
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
-
 
 class Hand:
     def __init__(self, cards=None):
@@ -63,7 +67,6 @@ class Hand:
 
     def __getitem__(self, index):
         return self.cards[index]
-
 
 class Board:
     def __init__(self):
@@ -108,7 +111,6 @@ class Board:
         else:
             raise ValueError("Invalid line specified")
 
-
 class GameState:
     def __init__(self, selected_cards=None, board=None, discarded_cards=None, ai_settings=None, deck=None):
         self.selected_cards = Hand(selected_cards) if selected_cards is not None else Hand()
@@ -139,14 +141,12 @@ class GameState:
         else:
             return 0
 
-
     def get_available_cards(self):
         """Returns a list of cards that are still available in the deck."""
 
         used_cards = set(self.discarded_cards + self.board.top + self.board.middle + self.board.bottom + list(self.selected_cards))
         available_cards = [card for card in self.deck if card not in used_cards]
         return available_cards
-
 
     def get_actions(self):
         """Returns the valid actions for the current state."""
@@ -191,7 +191,6 @@ class GameState:
 
         return actions
 
-
     def apply_action(self, action):
         """Applies an action to the current state and returns the new state."""
 
@@ -217,7 +216,6 @@ class GameState:
 
         return new_game_state
 
-
     def get_information_set(self):
         """Returns a string representation of the current information set."""
 
@@ -234,7 +232,6 @@ class GameState:
         selected_str = ','.join(map(card_to_string, sort_cards(self.selected_cards)))
 
         return f"T:{top_str}|M:{middle_str}|B:{bottom_str}|D:{discarded_str}|S:{selected_str}"
-
 
     def get_payoff(self):
         """Calculates the payoff for the current state."""
@@ -256,7 +253,6 @@ class GameState:
         bottom_rank, _ = self.evaluate_hand(self.board.bottom)
 
         return top_rank > middle_rank or middle_rank > bottom_rank
-
 
     def calculate_royalties(self):
         """Calculates royalties for the current state based on the rules."""
@@ -300,7 +296,6 @@ class GameState:
             return 2
         return 0
 
-
     def get_line_score(self, line, cards):
         """Calculates the score for a specific line based on hand rankings."""
         if not cards:
@@ -308,7 +303,6 @@ class GameState:
 
         rank, score = self.evaluate_hand(cards)
         return score
-
 
     def get_pair_bonus(self, cards):
         """Calculates the bonus for a pair in the top line."""
@@ -320,7 +314,6 @@ class GameState:
                 return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0 # Royalty for pairs on top
         return 0
 
-
     def get_high_card_bonus(self, cards):
         """Calculates the bonus for a high card in the top line."""
         if len(cards) != 3 or not all(isinstance(card, Card) for card in cards):
@@ -330,7 +323,6 @@ class GameState:
             high_card = max(ranks, key=Card.RANKS.index)
             return 1 if high_card == 'A' else 0 # Royalty for high card A on top
         return 0
-
 
     def get_fantasy_bonus(self):
         """Calculates the bonus for fantasy mode."""
@@ -366,7 +358,6 @@ class GameState:
             return True
 
         return False
-
 
     def evaluate_hand(self, cards):
         """Evaluates the hand and returns a rank (lower is better) and a score."""
@@ -418,7 +409,6 @@ class GameState:
         else:
             return 11, 0  # Return a low rank for invalid hands
 
-
     def is_royal_flush(self, cards):
         if not self.is_flush(cards):
             return False
@@ -459,7 +449,6 @@ class GameState:
         ranks = [card.rank for card in cards]
         return any(ranks.count(r) == 2 for r in ranks)
 
-
 class CFRNode:
     def __init__(self, actions):
         self.regret_sum = defaultdict(float)
@@ -491,7 +480,6 @@ class CFRNode:
             for a in self.actions:
                 avg_strategy[a] = 1.0 / len(self.actions)
         return avg_strategy
-
 
 class CFRAgent:
     def __init__(self, iterations=1000, stop_threshold=0.001):
@@ -564,7 +552,7 @@ class CFRAgent:
         for node in self.nodes.values():
             avg_strategy = node.get_average_strategy()
             for action, prob in avg_strategy.items():
-                if abs(prob - 1.0 / len(node.actions)) > self.stop_threshold:
+                                if abs(prob - 1.0 / len(node.actions)) > self.stop_threshold:
                     return False
         return True
 
@@ -630,7 +618,6 @@ class CFRAgent:
 
         return total_score / num_simulations if num_simulations > 0 else 0
 
-
     def baseline_evaluation(self, state):
         """Baseline heuristic evaluation of the game state."""
         if state.is_dead_hand():
@@ -656,14 +643,12 @@ class CFRAgent:
         }
         utils.save_data(data, 'cfr_data.pkl')
 
-
     def load_progress(self):
         data = utils.load_data('cfr_data.pkl')
         if data:
             self.nodes = data['nodes']
             self.iterations = data['iterations']
             self.stop_threshold = data.get('stop_threshold', 0.001) # Default value if not present
-
 
 # Creating an instance of the agent
 cfr_agent = CFRAgent()
