@@ -691,7 +691,7 @@ class CFRAgent:
                     return True
         return False
 
-        def is_straight_potential(self, cards, available_cards):
+    def is_straight_potential(self, cards, available_cards):
         """Checks if there's potential to make a straight."""
         if len(cards) < 2:
             return False
