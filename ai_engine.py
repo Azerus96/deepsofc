@@ -722,6 +722,15 @@ class CFRAgent:
         if ranks == [0, 1, 2, 3]:
             if any(card.rank == 'A' for card in available_cards):
                 return True
+        if ranks == [0, 1, 2, 12]:
+            if any(card.rank == '3' for card in available_cards):
+                return True
+        if ranks == [0, 1, 11, 12]:
+            if any(card.rank == '2' for card in available_cards):
+                return True
+        if ranks == [0, 10, 11, 12]:
+            if any(card.rank == '1' for card in available_cards):
+                return True
 
         return False
 
