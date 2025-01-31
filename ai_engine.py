@@ -4,6 +4,7 @@ from collections import defaultdict
 import utils
 from threading import Event, Thread
 import time
+import math
 
 class Card:
     RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
@@ -129,6 +130,10 @@ class GameState:
     def get_current_player(self):
         return self.current_player
 
+    def is_terminal(self):
+        """Checks if the game is in a terminal state (all lines are full)."""
+        return self.board.is_full()
+
     def get_num_cards_to_draw(self):
         """Returns the number of cards to draw based on the current game state."""
         placed_cards = sum(len(row) for row in [self.board.top, self.board.middle, self.board.bottom])
@@ -150,44 +155,62 @@ class GameState:
 
     def get_actions(self):
         """Returns the valid actions for the current state."""
+        if self.is_terminal():
+            return []  # No actions in a terminal state
+
         num_cards = len(self.selected_cards)
         actions = []
 
-        if num_cards == 5:
-            # Generate all possible permutations for placing 5 cards
-            for p in itertools.permutations(self.selected_cards.cards):
-                if self.evaluate_hand([p[0]])[0] != "Three of a Kind": # Avoid placing a set on the top row for the first 5 cards
+        if num_cards > 0:
+            if num_cards == 5:
+                # Generate all possible permutations for placing 5 cards
+                for p in itertools.permutations(self.selected_cards.cards):
+                    if self.evaluate_hand([p[0]])[0] != "Three of a Kind": # Avoid placing a set on the top row for the first 5 cards
+                        actions.append({
+                            'top': [p[0]],
+                            'middle': [p[1], p[2]],
+                            'bottom': [p[3], p[4]],
+                            'discarded': None
+                        })
+            elif num_cards == 3:
+                # Generate all possible combinations for placing 2 cards and discarding 1
+                for discarded_index in range(3):
+                    remaining_cards = [card for i, card in enumerate(self.selected_cards) if i != discarded_index]
+                    for top_count in range(min(len(remaining_cards) + 1, 3 - len(self.board.top))):
+                        for middle_count in range(min(len(remaining_cards) - top_count + 1, 5 - len(self.board.middle))):
+                            bottom_count = len(remaining_cards) - top_count - middle_count
+                            if bottom_count <= (5 - len(self.board.bottom)):
+                                action = {
+                                    'top': remaining_cards[:top_count],
+                                    'middle': remaining_cards[top_count:top_count + middle_count],
+                                    'bottom': remaining_cards[top_count + middle_count:],
+                                    'discarded': self.selected_cards[discarded_index]
+                                }
+                                actions.append(action)
+            elif num_cards >= 13:
+                # Generate permutations for fantasy mode
+                for p in itertools.permutations(self.selected_cards.cards):
                     actions.append({
-                        'top': [p[0]],
-                        'middle': [p[1], p[2]],
-                        'bottom': [p[3], p[4]],
-                        'discarded': None
+                        'top': list(p[:3]),
+                        'middle': list(p[3:8]),
+                        'bottom': list(p[8:13]),
+                        'discarded': list(p[13:])
                     })
-        elif num_cards == 3:
-            # Generate all possible combinations for placing 2 cards and discarding 1
-            for discarded_index in range(3):
-                remaining_cards = [card for i, card in enumerate(self.selected_cards) if i != discarded_index]
-                for top_count in range(min(len(remaining_cards) + 1, 3 - len(self.board.top))):
-                    for middle_count in range(min(len(remaining_cards) - top_count + 1, 5 - len(self.board.middle))):
-                        bottom_count = len(remaining_cards) - top_count - middle_count
-                        if bottom_count <= (5 - len(self.board.bottom)):
-                            action = {
-                                'top': remaining_cards[:top_count],
-                                'middle': remaining_cards[top_count:top_count + middle_count],
-                                'bottom': remaining_cards[top_count + middle_count:],
-                                'discarded': self.selected_cards[discarded_index]
-                            }
-                            actions.append(action)
-
-        elif num_cards >= 13:
-            # Generate permutations for fantasy mode
-            for p in itertools.permutations(self.selected_cards.cards):
-                actions.append({
-                    'top': list(p[:3]),
-                    'middle': list(p[3:8]),
-                    'bottom': list(p[8:13]),
-                    'discarded': list(p[13:])
-                })
+            else:
+                # Handle cases where num_cards is not 3, 5, or >= 13
+                # Example: Allow placing 1 or 2 cards if available
+                if num_cards == 1 or num_cards == 2:
+                    for top_count in range(min(num_cards + 1, 3 - len(self.board.top))):
+                        for middle_count in range(min(num_cards - top_count + 1, 5 - len(self.board.middle))):
+                            bottom_count = num_cards - top_count - middle_count
+                            if bottom_count <= (5 - len(self.board.bottom)):
+                                action = {
+                                    'top': list(self.selected_cards.cards[:top_count]),
+                                    'middle': list(self.selected_cards.cards[top_count:top_count + middle_count]),
+                                    'bottom': list(self.selected_cards.cards[top_count + middle_count:]),
+                                    'discarded': []  # No cards are discarded in this case
+                                }
+                                actions.append(action)
 
         return actions
 
@@ -493,14 +516,18 @@ class CFRAgent:
             return 0
 
         if game_state.is_terminal():
-            return game_state.get_payoff()
+            payoff = game_state.get_payoff()
+            print(f"cfr called in terminal state. Payoff: {payoff}")
+            return payoff
 
         player = game_state.get_current_player()
         info_set = game_state.get_information_set()
+        print(f"cfr called for info_set: {info_set}, player: {player}")
 
         if info_set not in self.nodes:
             actions = game_state.get_actions()
             if not actions:
+                print("No actions available for this state.")
                 return 0
             self.nodes[info_set] = CFRNode(actions)
         node = self.nodes[info_set]
@@ -528,6 +555,7 @@ class CFRAgent:
             for a in node.actions:
                 node.regret_sum[a] += p0 * (util[a] - node_util)
 
+        print(f"cfr returning for info_set: {info_set}, node_util: {node_util}")
         return node_util
 
     def train(self, timeout_event, result):
@@ -559,17 +587,24 @@ class CFRAgent:
     def get_move(self, game_state, num_cards, timeout_event, result):
         print("Inside get_move")
         actions = game_state.get_actions()
+        print(f"Available actions: {actions}")
+
         if not actions:
             result['move'] = {'error': 'Нет доступных ходов'}
             return
 
         info_set = game_state.get_information_set()
+        print(f"Info set: {info_set}")
+
         if info_set in self.nodes:
             strategy = self.nodes[info_set].get_average_strategy()
-            best_move = max(strategy, key=strategy.get) if strategy else None  # Choose the action with the highest probability
+            print(f"Strategy: {strategy}")
+            best_move = max(strategy, key=strategy.get) if strategy else None
         else:
-            best_move = random.choice(actions) if actions else None # Fallback to random if no strategy available
+            print("Info set not found in nodes, choosing random action.")
+            best_move = random.choice(actions) if actions else None
 
+        print(f"Selected move: {best_move}")
         result['move'] = best_move
 
     def evaluate_move(self, game_state, action, timeout_event):
@@ -618,20 +653,116 @@ class CFRAgent:
 
         return total_score / num_simulations if num_simulations > 0 else 0
 
+    def calculate_potential(self, cards, line, board, available_cards):
+        """Calculates the potential for improvement of a given hand."""
+        potential = 0
+        num_cards = len(cards)
+
+        if num_cards < 5 and line != 'top':
+            # Check for straight potential
+            if self.is_straight_potential(cards, available_cards):
+                potential += 0.5
+
+            # Check for flush potential
+            if self.is_flush_potential(cards, available_cards):
+                potential += 0.7
+
+        if num_cards == 2 and line == 'top':
+            # Check for pair potential to make a set
+            if self.is_pair_potential(cards, available_cards):
+                potential += 0.3
+
+        return potential
+
+    def is_flush_potential(self, cards, available_cards):
+        """Checks if there's potential to make a flush."""
+        if len(cards) < 2:
+            return False
+
+        suit_counts = defaultdict(int)
+        for card in cards:
+            suit_counts[card.suit] += 1
+
+        for suit, count in suit_counts.items():
+            if count >= 2:  # At least 2 cards of the same suit
+                remaining_needed = 5 - count
+                available_of_suit = sum(1 for card in available_cards if card.suit == suit)
+                if available_of_suit >= remaining_needed:
+                    return True
+        return False
+
+        def is_straight_potential(self, cards, available_cards):
+        """Checks if there's potential to make a straight."""
+        if len(cards) < 2:
+            return False
+
+        ranks = sorted([Card.RANKS.index(card.rank) for card in cards])
+        # Check for consecutive ranks
+        for i in range(len(ranks) - 1):
+            if ranks[i + 1] - ranks[i] == 1:
+                return True
+
+        # Check for one-gap straights (e.g., 2, 4, 5 or 7, 9, 10)
+        if len(ranks) >= 2:
+            for i in range(len(ranks) - 1):
+                if ranks[i + 1] - ranks[i] == 2:
+                    needed_rank = ranks[i] + 1
+                    if any(Card.RANKS.index(card.rank) == needed_rank for card in available_cards):
+                        return True
+
+        # Check for two-gap straights (e.g., 2, 5 or 6, 9)
+        if len(ranks) >= 2:
+            for i in range(len(ranks) - 1):
+                if ranks[i + 1] - ranks[i] == 3:
+                    needed_ranks = [ranks[i] + 1, ranks[i] + 2]
+                    if sum(1 for card in available_cards if Card.RANKS.index(card.rank) in needed_ranks) >= 1:
+                        return True
+
+        # Special case for A, 2, 3, 4, 5 straight
+        if ranks == [0, 1, 2, 3]:
+            if any(card.rank == 'A' for card in available_cards):
+                return True
+
+        return False
+
+    def is_pair_potential(self, cards, available_cards):
+        """Checks if there's potential to make a set (three of a kind) from a pair."""
+        if len(cards) != 2:
+            return False
+
+        if cards[0].rank == cards[1].rank:
+            rank = cards[0].rank
+            if sum(1 for card in available_cards if card.rank == rank) >= 1:
+                return True
+
+        return False
+
     def baseline_evaluation(self, state):
-        """Baseline heuristic evaluation of the game state."""
+        """Heuristic evaluation of the game state."""
         if state.is_dead_hand():
-            return -1000 # Large negative penalty for dead hands
+            return -1000  # Large negative penalty for dead hands
 
         score = 0
-        score += state.get_line_score('top', state.board.top)
-        score += state.get_line_score('middle', state.board.middle)
-        score += state.get_line_score('bottom', state.board.bottom)
 
-        # Add some logic to favor better combinations on higher lines
+        # 1. Hand strength evaluation
+        score += state.get_line_score('top', state.board.top) * 3  # Top line is more important
+        score += state.get_line_score('middle', state.board.middle) * 2
+        score += state.get_line_score('bottom', state.board.bottom) * 1
+
+        # 2. Potential for improvement
+        available_cards = state.get_available_cards()
+        score += self.calculate_potential(state.board.top, 'top', state.board, available_cards) * 5  # Higher weight for potential
+        score += self.calculate_potential(state.board.middle, 'middle', state.board, available_cards) * 3
+        score += self.calculate_potential(state.board.bottom, 'bottom', state.board, available_cards) * 2
+
+        # 3. Favor placing higher cards on higher lines
         score += sum(Card.RANKS.index(card.rank) for card in state.board.top) * 0.5
         score += sum(Card.RANKS.index(card.rank) for card in state.board.middle) * 0.3
         score += sum(Card.RANKS.index(card.rank) for card in state.board.bottom) * 0.2
+
+        # 4. Fantasy mode bonus
+        if any(card.rank in ['Q', 'K', 'A'] for card in state.board.top):
+            score += state.get_fantasy_bonus()
 
         return score
 
@@ -650,5 +781,25 @@ class CFRAgent:
             self.iterations = data['iterations']
             self.stop_threshold = data.get('stop_threshold', 0.001) # Default value if not present
 
-# Creating an instance of the agent
+class RandomAgent:
+    def __init__(self):
+        pass  # No initialization needed for a random agent
+
+    def get_move(self, game_state, num_cards, timeout_event, result):
+        """Chooses a random valid move."""
+        print("Inside RandomAgent get_move")
+        actions = game_state.get_actions()
+        print(f"Available actions: {actions}")
+
+        if not actions:
+            result['move'] = {'error': 'Нет доступных ходов'}
+            return
+
+        best_move = random.choice(actions) if actions else None
+
+        print(f"Selected move: {best_move}")
+        result['move'] = best_move
+
+# Creating instances of the agents
 cfr_agent = CFRAgent()
+random_agent = RandomAgent()
