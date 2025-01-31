@@ -12,7 +12,6 @@ def save_data(data, filename):
         print(f"Error saving data to {filename}: {e}")
         return False # Indicate failure
 
-
 def load_data(filename):
     """Loads data from a file using pickle."""
     if not os.path.exists(filename):
