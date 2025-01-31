@@ -42,7 +42,6 @@ def save_progress_to_github(filename=AI_PROGRESS_FILENAME):
         print(f"An unexpected error occurred during saving: {e}")
         return False # Indicate failure
 
-
 def load_progress_from_github(filename=AI_PROGRESS_FILENAME):
     token = os.environ.get("AI_PROGRESS_TOKEN")
     if not token:
