@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, session, request
 import os
 import ai_engine
+from ai_engine import CFRAgent, RandomAgent
 import utils
 import github_utils
 import time
@@ -10,8 +11,9 @@ from threading import Thread, Event
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# Global AI agent instance
+# Global AI agent instances
 cfr_agent = None
+random_agent = RandomAgent()
 
 # Function to initialize the AI agent with settings
 def initialize_ai_agent(ai_settings):
@@ -83,14 +85,12 @@ def update_state():
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
-    if cfr_agent is None:
-        return jsonify({'error': 'AI agent not initialized'}), 500
+    global random_agent
 
     game_state_data = request.get_json()
-    print("Received game_state_data:", game_state_data)
-
     num_cards = len(game_state_data.get('selected_cards', []))
     ai_settings = game_state_data.get('ai_settings', {})
+    ai_type = ai_settings.get('aiType', 'mccfr')  # Default to MCCFR
 
     try:
         selected_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data['selected_cards']]
@@ -98,30 +98,31 @@ def ai_move():
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
             for card_data in game_state_data['board'].get(line, []):
-                if card_data: # Check if the slot is not empty
+                if card_data:
                     board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
 
+        game_state = ai_engine.GameState(
+            selected_cards=selected_cards,
+            board=board,
+            discarded_cards=discarded_cards,
+            ai_settings=ai_settings,
+            deck=ai_engine.Card.get_all_cards()
+        )
+
         # Check if the board is full before the AI makes a move
-        if board.is_full():
+        if game_state.is_terminal():
             # Calculate royalties and update AI progress
-            game_state = ai_engine.GameState(
-                selected_cards=selected_cards,
-                board=board,
-                discarded_cards=discarded_cards,
-                ai_settings=ai_settings,
-                deck=ai_engine.Card.get_all_cards()
-            )
             payoff = game_state.get_payoff()
             print(f"Game over. Payoff: {payoff}")
 
-            # Update AI progress based on the game result
-            if cfr_agent:
+            # Update AI progress based on the game result (if using MCCFR)
+            if cfr_agent and ai_settings.get('aiType') == 'mccfr':
                 try:
-                    cfr_agent.update_strategy_for_game_over(game_state, payoff)
+                    # No need to update strategy here, just save the progress
                     cfr_agent.save_progress()
-                    print("AI progress updated and saved successfully.")
+                    print("AI progress saved successfully.")
                 except Exception as e:
-                    print(f"Error updating AI progress: {e}")
+                    print(f"Error saving AI progress: {e}")
 
             return jsonify({'message': 'Game over', 'payoff': payoff}), 200
 
@@ -139,7 +140,14 @@ def ai_move():
     timeout_event = Event()
     result = {'move': None}
 
-    ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+    # Choose the appropriate agent based on ai_type
+    if ai_type == 'mccfr':
+        if cfr_agent is None:
+            return jsonify({'error': 'MCCFR agent not initialized'}), 500
+        ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+    else:  # ai_type == 'random'
+        ai_thread = Thread(target=random_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+
     ai_thread.start()
 
     ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
