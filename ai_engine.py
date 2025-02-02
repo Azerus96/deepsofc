@@ -89,7 +89,7 @@ class Board:
                 raise ValueError("Bottom line is full")
             self.bottom.append(card)
         else:
-            raise ValueError(f"Invalid line: {line}. Line must be one of: 'top', 'middle', 'bottom'")
+            raise ValueError(f"Invalid line: {line}. Must be one of: 'top', 'middle', 'bottom'")
 
     def is_full(self):
         return len(self.top) == 3 and len(self.middle) == 5 and len(self.bottom) == 5
@@ -136,7 +136,7 @@ class GameState:
         placed_cards = sum(len(row) for row in [self.board.top, self.board.middle, self.board.bottom])
         if placed_cards == 5:
             return 3
-        elif placed_cards == 7 or placed_cards == 10:
+        elif placed_cards in [7, 10]:
             return 3
         elif placed_cards >= 13:
             return 0
@@ -145,15 +145,14 @@ class GameState:
 
     def get_available_cards(self):
         used_cards = set(self.discarded_cards + self.board.top + self.board.middle + self.board.bottom + list(self.selected_cards))
-        available_cards = [card for card in self.deck if card not in used_cards]
-        return available_cards
+        return [card for card in self.deck if card not in used_cards]
 
     def get_actions(self):
         if self.is_terminal():
             return []
         num_cards = len(self.selected_cards)
         actions = []
-        # Если режим фантазии включен и имеется не менее 13 карт, генерируем варианты для фантазии
+        # Если в режиме фантазии и ≥13 карт, генерируем полные варианты
         if num_cards >= 13 and self.ai_settings.get('fantasyMode'):
             for p in itertools.permutations(self.selected_cards.cards):
                 action = {
@@ -164,9 +163,9 @@ class GameState:
                 }
                 actions.append(action)
             return actions
+        # Если 5 карт
         if num_cards == 5:
             for p in itertools.permutations(self.selected_cards.cards):
-                # Избегаем набора на верхней линии (set)
                 if self.evaluate_hand([p[0]])[0] != 7:
                     actions.append({
                         'top': [p[0]],
@@ -174,13 +173,19 @@ class GameState:
                         'bottom': [p[3], p[4]],
                         'discarded': None
                     })
+        # Если 3 карты (последний ход: разместить 2 и отбросить 1)
         elif num_cards == 3:
+            # Вычисляем, сколько мест ещё свободно в каждом ряду
+            top_remaining = 3 - len(self.board.top)
+            middle_remaining = 5 - len(self.board.middle)
+            bottom_remaining = 5 - len(self.board.bottom)
             for discarded_index in range(3):
                 remaining_cards = [card for i, card in enumerate(self.selected_cards) if i != discarded_index]
-                for top_count in range(min(len(remaining_cards) + 1, 3 - len(self.board.top))):
-                    for middle_count in range(min(len(remaining_cards) - top_count + 1, 5 - len(self.board.middle))):
+                # Перебираем возможное распределение оставшихся карт по рядам с учётом свободных слотов
+                for top_count in range(0, min(len(remaining_cards), top_remaining) + 1):
+                    for middle_count in range(0, min(len(remaining_cards) - top_count, middle_remaining) + 1):
                         bottom_count = len(remaining_cards) - top_count - middle_count
-                        if bottom_count <= (5 - len(self.board.bottom)):
+                        if bottom_count <= bottom_remaining:
                             action = {
                                 'top': remaining_cards[:top_count],
                                 'middle': remaining_cards[top_count:top_count + middle_count],
@@ -188,19 +193,22 @@ class GameState:
                                 'discarded': self.selected_cards[discarded_index]
                             }
                             actions.append(action)
-        else:
-            if num_cards == 1 or num_cards == 2:
-                for top_count in range(min(num_cards + 1, 3 - len(self.board.top))):
-                    for middle_count in range(min(num_cards - top_count + 1, 5 - len(self.board.middle))):
-                        bottom_count = num_cards - top_count - middle_count
-                        if bottom_count <= (5 - len(self.board.bottom)):
-                            action = {
-                                'top': list(self.selected_cards.cards[:top_count]),
-                                'middle': list(self.selected_cards.cards[top_count:top_count + middle_count]),
-                                'bottom': list(self.selected_cards.cards[top_count + middle_count:]),
-                                'discarded': []
-                            }
-                            actions.append(action)
+        # Если 1 или 2 карты – аналогично (учитываем оставшиеся слоты)
+        elif num_cards in [1, 2]:
+            top_remaining = 3 - len(self.board.top)
+            middle_remaining = 5 - len(self.board.middle)
+            bottom_remaining = 5 - len(self.board.bottom)
+            for top_count in range(0, min(num_cards, top_remaining) + 1):
+                for middle_count in range(0, min(num_cards - top_count, middle_remaining) + 1):
+                    bottom_count = num_cards - top_count - middle_count
+                    if bottom_count <= bottom_remaining:
+                        action = {
+                            'top': list(self.selected_cards.cards[:top_count]),
+                            'middle': list(self.selected_cards.cards[top_count:top_count + middle_count]),
+                            'bottom': list(self.selected_cards.cards[top_count + middle_count:]),
+                            'discarded': []
+                        }
+                        actions.append(action)
         return actions
 
     def apply_action(self, action):
@@ -208,22 +216,19 @@ class GameState:
         new_board.top = self.board.top + action.get('top', [])
         new_board.middle = self.board.middle + action.get('middle', [])
         new_board.bottom = self.board.bottom + action.get('bottom', [])
-
         new_discarded_cards = self.discarded_cards[:]
         if 'discarded' in action and action['discarded']:
             if isinstance(action['discarded'], list):
                 new_discarded_cards.extend(action['discarded'])
             else:
                 new_discarded_cards.append(action['discarded'])
-
-        new_game_state = GameState(
+        return GameState(
             selected_cards=Hand(),
             board=new_board,
             discarded_cards=new_discarded_cards,
             ai_settings=self.ai_settings,
             deck=self.deck[:]  # копия колоды
         )
-        return new_game_state
 
     def get_information_set(self):
         def card_to_string(card):
@@ -316,7 +321,7 @@ class GameState:
     def get_fantasy_bonus(self):
         bonus = 0
         top_rank, _ = self.evaluate_hand(self.board.top)
-        if top_rank <= 8 and self.board.top[0].rank in ['Q', 'K', 'A']:
+        if top_rank <= 8 and self.board.top and self.board.top[0].rank in ['Q', 'K', 'A']:
             if self.ai_settings.get('fantasyType') == 'progressive':
                 if self.board.top[0].rank == 'Q':
                     bonus += 14
@@ -341,6 +346,38 @@ class GameState:
             return True
         return False
 
+    def calculate_royalty_bonus(self):
+        """
+        Рассчитывает бонусы согласно правилам:
+          - Нижняя линия: +6, если комбинация – Фулл Хаус (или лучше)
+          - Средняя линия: +4, если комбинация – Стрит
+          - Верхняя линия: +7, если комбинация – пара дам (без фола)
+          Общий бонус = сумма бонусов.
+        """
+        bonus = {'top': 0, 'middle': 0, 'bottom': 0, 'total': 0}
+        # Верхняя линия
+        if len(self.board.top) == 3:
+            rank, _ = self.evaluate_hand(self.board.top)
+            # Если комбинация – One Pair и самая высокая пара не ниже дам, и рука не мёртва
+            if rank == 9:
+                pair_cards = [card for card in self.board.top if self.board.top.count(card) >= 2]
+                if pair_cards and pair_cards[0].rank in ['Q', 'K', 'A'] and not self.is_dead_hand():
+                    bonus['top'] = 7
+        # Средняя линия
+        if len(self.board.middle) == 5:
+            rank, _ = self.evaluate_hand(self.board.middle)
+            # Если комбинация – Стрит
+            if rank == 6:
+                bonus['middle'] = 4
+        # Нижняя линия
+        if len(self.board.bottom) == 5:
+            rank, _ = self.evaluate_hand(self.board.bottom)
+            # Если комбинация – Фулл Хаус или лучше (т.е. rank от 1 до 4)
+            if 1 <= rank <= 4:
+                bonus['bottom'] = 6
+        bonus['total'] = bonus['top'] + bonus['middle'] + bonus['bottom']
+        return bonus
+
     def evaluate_hand(self, cards):
         if not cards or not all(isinstance(card, Card) for card in cards):
             return 11, 0
@@ -351,10 +388,10 @@ class GameState:
             if self.is_straight_flush(cards):
                 return 2, 15
             if self.is_four_of_a_kind(cards):
-                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 4][0]
+                rank = [card.rank for card in cards if cards.count(card) == 4][0]
                 return 3, 10 + Card.RANKS.index(rank) / 100
             if self.is_full_house(cards):
-                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 3][0]
+                rank = [card.rank for card in cards if cards.count(card) == 3][0]
                 return 4, 6 + Card.RANKS.index(rank) / 100
             if self.is_flush(cards):
                 score = 4 + sum(Card.RANKS.index(card.rank) for card in cards) / 1000
@@ -363,13 +400,13 @@ class GameState:
                 score = 2 + sum(Card.RANKS.index(card.rank) for card in cards) / 1000
                 return 6, score
             if self.is_three_of_a_kind(cards):
-                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 3][0]
+                rank = [card.rank for card in cards if cards.count(card) == 3][0]
                 return 7, 2 + Card.RANKS.index(rank) / 100
             if self.is_two_pair(cards):
-                ranks = sorted([Card.RANKS.index(card.rank) for card in cards if [card.rank for card in cards].count(card.rank) == 2], reverse=True)
+                ranks = sorted([Card.RANKS.index(card.rank) for card in cards if cards.count(card) == 2], reverse=True)
                 return 8, sum(ranks) / 1000
             if self.is_one_pair(cards):
-                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 2][0]
+                rank = [card.rank for card in cards if cards.count(card) == 2][0]
                 return 9, Card.RANKS.index(rank) / 1000
             score = sum(Card.RANKS.index(card.rank) for card in cards) / 10000
             return 10, score
@@ -378,7 +415,7 @@ class GameState:
                 rank = cards[0].rank
                 return 7, 10 + Card.RANKS.index(rank)
             if self.is_one_pair(cards):
-                rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 2][0]
+                rank = [card.rank for card in cards if cards.count(card) == 2][0]
                 return 8, self.get_pair_bonus(cards)
             return 9, self.get_high_card_bonus(cards)
         else:
@@ -467,15 +504,15 @@ class CFRAgent:
             return 0
         if game_state.is_terminal():
             payoff = game_state.get_payoff()
-            print(f"cfr called in terminal state. Payoff: {payoff}")
+            print(f"cfr terminal state. Payoff: {payoff}")
             return payoff
         player = game_state.get_current_player()
         info_set = game_state.get_information_set()
-        print(f"cfr called for info_set: {info_set}, player: {player}")
+        print(f"cfr for info_set: {info_set}, player: {player}")
         if info_set not in self.nodes:
             actions = game_state.get_actions()
             if not actions:
-                print("No actions available for this state.")
+                print("No actions available.")
                 return 0
             self.nodes[info_set] = CFRNode(actions)
         node = self.nodes[info_set]
@@ -484,7 +521,7 @@ class CFRAgent:
         node_util = 0
         for a in node.actions:
             if timeout_event.is_set():
-                print("CFR timed out during action loop!")
+                print("CFR timed out in loop!")
                 return 0
             next_state = game_state.apply_action(a)
             if player == 0:
@@ -504,7 +541,7 @@ class CFRAgent:
     def train(self, timeout_event, result):
         for i in range(self.iterations):
             if timeout_event.is_set():
-                print(f"Training interrupted after {i} iterations due to timeout.")
+                print(f"Training stopped at {i} iterations.")
                 break
             all_cards = Card.get_all_cards()
             random.shuffle(all_cards)
@@ -512,9 +549,9 @@ class CFRAgent:
             game_state.selected_cards = Hand(all_cards[:5])
             self.cfr(game_state, 1, 1, timeout_event, result)
             if (i + 1) % 100 == 0:
-                print(f"Iteration {i+1} of {self.iterations} complete.")
+                print(f"Iteration {i+1}/{self.iterations} complete.")
                 if self.check_convergence():
-                    print("CFR agent converged after", i + 1, "iterations.")
+                    print("CFR converged after", i + 1, "iterations.")
                     break
 
     def check_convergence(self):
@@ -623,9 +660,9 @@ class CFRAgent:
         if not actions:
             result['move'] = {'error': 'Нет доступных ходов'}
             return
-        fantasy_mode = game_state.ai_settings.get('fantasyMode', False)
-        fantasy_actions = []
-        if fantasy_mode:
+        # Если включён режим фантазии, фильтруем варианты, чтобы избежать фола
+        if game_state.ai_settings.get('fantasyMode'):
+            fantasy_actions = []
             for action in actions:
                 next_state = game_state.apply_action(action)
                 if not next_state.is_dead_hand():
@@ -641,7 +678,7 @@ class CFRAgent:
                 best_value = value
                 best_action = action
         if best_action is None:
-            print("Info set not found in nodes, choosing random action.")
+            print("No best action found, choosing random.")
             best_action = random.choice(actions) if actions else None
         print(f"Selected move: {best_action}")
         result['move'] = best_action
@@ -718,6 +755,6 @@ class RandomAgent:
         print(f"Selected move: {best_move}")
         result['move'] = best_move
 
-# Создание экземпляров агентов
+# Создание глобальных агентов (инициализируются в app.py)
 cfr_agent = CFRAgent()
 random_agent = RandomAgent()
