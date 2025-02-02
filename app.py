@@ -158,6 +158,30 @@ def ai_move():
             print(f"Error saving AI progress: {e}")
     return jsonify(serialized_move)
 
+@app.route('/calculate_royalty', methods=['POST'])
+def calculate_royalty():
+    # Новый эндпоинт для вычисления бонусов роялти в конце игры
+    try:
+        game_state_data = request.get_json()
+        selected_cards = [Card(card['rank'], card['suit']) for card in game_state_data.get('selected_cards', [])]
+        discarded_cards = [Card(card['rank'], card['suit']) for card in game_state_data.get('discarded_cards', [])]
+        board = Board()
+        for line in ['top', 'middle', 'bottom']:
+            for card_data in game_state_data['board'].get(line, []):
+                if card_data:
+                    board.place_card(line, Card(card_data['rank'], card_data['suit']))
+        game_state = GameState(
+            selected_cards=selected_cards,
+            board=board,
+            discarded_cards=discarded_cards,
+            ai_settings=game_state_data.get('ai_settings', {}),
+            deck=Card.get_all_cards()
+        )
+        bonus = game_state.calculate_royalty_bonus()
+        return jsonify(bonus)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
 
