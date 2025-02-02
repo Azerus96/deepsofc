@@ -1,637 +1,750 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Training Mode</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
-      min-height: 100vh;
-      box-sizing: border-box;
-    }
-    .controls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      position: sticky;
-      top: 0;
-      z-index: 1001;
-      background: #f0f0f0;
-      padding: 10px;
-    }
-    button {
-      padding: 12px 24px;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      background-color: #4CAF50;
-      color: white;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    button:hover {
-      background-color: #45a049;
-      transform: translateY(-1px);
-    }
-    .menu-toggle {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 1100;
-      background: transparent;
-      border: none;
-      font-size: 32px;
-      color: #4CAF50;
-      cursor: pointer;
-    }
-    .menu-panel {
-      position: fixed;
-      top: 0;
-      left: -300px;
-      width: 300px;
-      height: 100%;
-      background: #fff;
-      box-shadow: 2px 0 5px rgba(0,0,0,0.2);
-      transition: left 0.3s ease;
-      z-index: 1050;
-      padding: 20px;
-    }
-    .menu-panel.open {
-      left: 0;
-    }
-    .menu-panel h3 {
-      margin-top: 0;
-    }
-    .setting-group {
-      margin-bottom: 15px;
-    }
-    .table {
-      display: grid;
-      grid-template-rows: auto auto auto;
-      gap: 10px;
-      margin: 20px auto;
-      width: 95%;
-      max-width: 800px;
-      background-color: #1a472a;
-      padding: 10px;
-      border-radius: 8px;
-    }
-    .row {
-      display: flex;
-      justify-content: space-around;
-      min-height: 80px;
-      padding: 5px;
-      background-color: rgba(255,255,255,0.1);
-      border-radius: 4px;
-      position: relative;
-    }
-    .card-slot {
-      width: 60px;
-      height: 80px;
-      border: 2px dashed rgba(255,255,255,0.3);
-      border-radius: 4px;
-      position: relative;
-    }
-    .card-slot.taken {
-      border: 2px solid red;
-    }
-    .card {
-      width: 60px;
-      height: 80px;
-      border-radius: 4px;
-      background-color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 18px;
-      position: absolute;
-      top: 0;
-      left: 0;
-      cursor: pointer;
-      user-select: none;
-    }
-    .card[data-suit="♥"], .card[data-suit="♦"] {
-      color: #e44145;
-    }
-    .card[data-suit="♣"], .card[data-suit="♠"] {
-      color: #2d2d2d;
-    }
-    .royalty-label {
-      position: absolute;
-      right: 5px;
-      top: 5px;
-      font-size: 18px;
-      color: green;
-      font-weight: bold;
-      opacity: 0;
-      transition: opacity 1s ease;
-    }
-    .royalty-total {
-      position: absolute;
-      left: 5px;
-      top: 5px;
-      font-size: 20px;
-      color: green;
-      font-weight: bold;
-      opacity: 0;
-      transition: opacity 1s ease;
-    }
-    @media (max-width: 600px) {
-      .royalty-label, .royalty-total {
-        font-size: 16px;
-      }
-      .table {
-        max-width: 100%;
-      }
-    }
-  </style>
+    <title>Training Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Подключение Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* Основные стили страницы */
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            overflow-x: hidden;
+            min-height: 100vh;
+            padding-bottom: 150px;
+            box-sizing: border-box;
+        }
+        /* Стили для панели управления (контролы) */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+            background: #f0f0f0;
+            padding: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        button:hover {
+            background-color: #45a049;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(1px);
+        }
+        /* Кнопка-иконка меню (три горизонтальные линии) */
+        .menu-toggle {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1100;
+            background: transparent;
+            border: none;
+            font-size: 32px;
+            color: #4CAF50;
+            cursor: pointer;
+        }
+        /* Панель настроек (меню) */
+        .menu-panel {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            background: #fff;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            transition: left 0.3s ease;
+            z-index: 1050;
+            padding: 20px;
+        }
+        .menu-panel.open {
+            left: 0;
+        }
+        .menu-panel h3 {
+            margin-top: 0;
+        }
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        .setting-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .setting-group select,
+        .setting-group input[type="range"],
+        .setting-group input[type="checkbox"] {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        /* Игровое поле */
+        .table {
+            display: grid;
+            grid-template-rows: auto auto auto;
+            gap: 10px;
+            margin: 20px auto;
+            width: 95%;
+            max-width: 800px;
+            background-color: #1a472a;
+            padding: 10px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .row {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            min-height: 80px;
+            padding: 5px;
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            position: relative;
+        }
+        .card-slot {
+            width: 60px;
+            height: 80px;
+            border: 2px dashed rgba(255,255,255,0.3);
+            border-radius: 4px;
+            position: relative;
+        }
+        .card-slot.taken {
+            border: 2px solid red;
+        }
+        .card {
+            width: 60px;
+            height: 80px;
+            border-radius: 4px;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+        .card[data-suit="♥"], .card[data-suit="♦"] {
+            color: #e44145;
+        }
+        .card[data-suit="♣"], .card[data-suit="♠"] {
+            color: #2d2d2d;
+        }
+        /* Анимация роялти: цифры выводятся справа от каждого ряда, а общий бонус – слева от верхнего ряда */
+        .royalty-label {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            font-size: 18px;
+            color: green;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        .royalty-total {
+            position: absolute;
+            left: 5px;
+            top: 5px;
+            font-size: 20px;
+            color: green;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+        /* Стили для области управления картами */
+        .card-controls {
+            margin: 20px auto;
+            max-width: 800px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .selector-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 5px;
+        }
+        .selector-item, .action-button {
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+        }
+        .selector-item:hover, .action-button:hover {
+            border-color: #4CAF50;
+            transform: translateY(-2px);
+        }
+        .selector-item.selected {
+            background-color: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        .selector-item.unavailable {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .combination-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px auto;
+            max-width: 800px;
+        }
+        .combination-slot {
+            width: 60px;
+            height: 80px;
+            border: 2px dashed #ddd;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .combination-slot.taken {
+            border-color: #4CAF50;
+        }
+        @media (max-width: 600px) {
+            .royalty-label, .royalty-total {
+                font-size: 16px;
+            }
+            .table {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <button class="menu-toggle" onclick="toggleMenu()">☰</button>
-  <div class="menu-panel" id="menu-panel">
-    <h3>Настройки</h3>
-    <div class="setting-group">
-      <label for="fantasyType">Тип фантазии:</label>
-      <select id="fantasyType">
-        <option value="normal">Обычная</option>
-        <option value="progressive">Прогрессивная</option>
-      </select>
+    <!-- Кнопка для вызова меню -->
+    <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+    <!-- Панель меню с настройками -->
+    <div class="menu-panel" id="menu-panel">
+        <h3>Настройки</h3>
+        <div class="setting-group">
+            <label for="fantasyType">Тип фантазии:</label>
+            <select id="fantasyType">
+                <option value="normal">Обычная</option>
+                <option value="progressive">Прогрессивная</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <input type="checkbox" id="fantasyMode">
+            <label for="fantasyMode">Режим фантазии</label>
+        </div>
+        <div class="setting-group">
+            <label for="aiTime">Время на ход ИИ (сек):</label>
+            <input type="range" id="aiTime" min="1" max="60" value="5">
+            <span id="aiTimeValue">5</span>
+        </div>
+        <div class="setting-group">
+            <label for="iterations">Количество итераций MCCFR:</label>
+            <input type="range" id="iterations" min="100" max="10000" value="1000">
+            <span id="iterationsValue">1000</span>
+        </div>
+        <div class="setting-group">
+            <label for="stopThreshold">Порог остановки обучения:</label>
+            <input type="range" id="stopThreshold" min="0.0001" max="0.1" step="0.0001" value="0.001">
+            <span id="stopThresholdValue">0.001</span>
+        </div>
+        <div class="setting-group">
+            <label for="aiType">Тип ИИ:</label>
+            <select id="aiType">
+                <option value="random">Случайный</option>
+                <option value="mccfr">MCCFR</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <button onclick="saveSettings()">Ок</button>
+        </div>
     </div>
-    <div class="setting-group">
-      <input type="checkbox" id="fantasyMode">
-      <label for="fantasyMode">Режим фантазии</label>
-    </div>
-    <div class="setting-group">
-      <label for="aiTime">Время на ход ИИ (сек):</label>
-      <input type="range" id="aiTime" min="1" max="60" value="5">
-      <span id="aiTimeValue">5</span>
-    </div>
-    <div class="setting-group">
-      <label for="iterations">Количество итераций MCCFR:</label>
-      <input type="range" id="iterations" min="100" max="10000" value="1000">
-      <span id="iterationsValue">1000</span>
-    </div>
-    <div class="setting-group">
-      <label for="stopThreshold">Порог остановки обучения:</label>
-      <input type="range" id="stopThreshold" min="0.0001" max="0.1" step="0.0001" value="0.001">
-      <span id="stopThresholdValue">0.001</span>
-    </div>
-    <div class="setting-group">
-      <label for="aiType">Тип ИИ:</label>
-      <select id="aiType">
-        <option value="random">Случайный</option>
-        <option value="mccfr">MCCFR</option>
-      </select>
-    </div>
-    <div class="setting-group">
-      <button onclick="saveSettings()">Ок</button>
-    </div>
-  </div>
 
-  <div class="controls">
-    <button onclick="goToGame()">К игре</button>
-    <button onclick="resetTraining()">Сброс</button>
-  </div>
-
-  <div class="table" id="game-table">
-    <div class="row" id="top-row">
-      <div class="royalty-total" id="total-royalty"></div>
-      <div class="royalty-label" id="top-royalty"></div>
+    <!-- Контролы для перехода в игру и сброса тренировки -->
+    <div class="controls">
+        <button onclick="goToGame()">К игре</button>
+        <button onclick="resetTraining()">Сброс</button>
     </div>
-    <div class="row" id="middle-row">
-      <div class="royalty-label" id="middle-royalty"></div>
+
+    <!-- Игровое поле (таблица) -->
+    <div class="table" id="game-table">
+        <div class="row" id="top-row">
+            <!-- Общий роялти выводится слева от верхней строки -->
+            <div class="royalty-total" id="total-royalty"></div>
+            <!-- Роялти для верхней линии – справа -->
+            <div class="royalty-label" id="top-royalty"></div>
+        </div>
+        <div class="row" id="middle-row">
+            <div class="royalty-label" id="middle-royalty"></div>
+        </div>
+        <div class="row" id="bottom-row">
+            <div class="royalty-label" id="bottom-royalty"></div>
+        </div>
     </div>
-    <div class="row" id="bottom-row">
-      <div class="royalty-label" id="bottom-royalty"></div>
+
+    <!-- Блок управления картами (селекторы) -->
+    <div class="card-controls">
+        <div class="selector-row">
+            <div class="selector-item" data-rank="A">A</div>
+            <div class="selector-item" data-rank="K">K</div>
+            <div class="selector-item" data-rank="Q">Q</div>
+            <div class="selector-item" data-rank="J">J</div>
+            <div class="selector-item" data-rank="10">10</div>
+            <div class="selector-item" data-rank="9">9</div>
+            <div class="selector-item" data-rank="8">8</div>
+            <div class="selector-item" data-rank="7">7</div>
+            <div class="selector-item" data-rank="6">6</div>
+            <div class="selector-item" data-rank="5">5</div>
+            <div class="selector-item" data-rank="4">4</div>
+            <div class="selector-item" data-rank="3">3</div>
+            <div class="selector-item" data-rank="2">2</div>
+        </div>
+        <div class="selector-row">
+            <button class="selector-item action-button" onclick="distributeCards()">+</button>
+            <div class="selector-item" data-suit="♥">♥</div>
+            <div class="selector-item" data-suit="♦">♦</div>
+            <div class="selector-item" data-suit="♣">♣</div>
+            <div class="selector-item" data-suit="♠">♠</div>
+            <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
+        </div>
     </div>
-  </div>
 
-  <div class="card-controls">
-    <div class="selector-row">
-      <div class="selector-item" data-rank="A">A</div>
-      <div class="selector-item" data-rank="K">K</div>
-      <div class="selector-item" data-rank="Q">Q</div>
-      <div class="selector-item" data-rank="J">J</div>
-      <div class="selector-item" data-rank="10">10</div>
-      <div class="selector-item" data-rank="9">9</div>
-      <div class="selector-item" data-rank="8">8</div>
-      <div class="selector-item" data-rank="7">7</div>
-      <div class="selector-item" data-rank="6">6</div>
-      <div class="selector-item" data-rank="5">5</div>
-      <div class="selector-item" data-rank="4">4</div>
-      <div class="selector-item" data-rank="3">3</div>
-      <div class="selector-item" data-rank="2">2</div>
-    </div>
-    <div class="selector-row">
-      <button class="selector-item action-button" onclick="distributeCards()">+</button>
-      <div class="selector-item" data-suit="♥">♥</div>
-      <div class="selector-item" data-suit="♦">♦</div>
-      <div class="selector-item" data-suit="♣">♣</div>
-      <div class="selector-item" data-suit="♠">♠</div>
-      <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
-    </div>
-  </div>
+    <!-- Область для размещения комбинации карт -->
+    <div class="combination-area" id="combination-area"></div>
 
-  <div class="combination-area" id="combination-area"></div>
+    <script>
+        let menuOpen = false;
+        let selectedRank = null;
+        let selectedSuit = null;
+        let unavailableCards = new Set();
 
-  <script>
-    let menuOpen = false;
-    let selectedRank = null;
-    let selectedSuit = null;
-    let unavailableCards = new Set();
-
-    function toggleMenu() {
-      const menu = document.getElementById('menu-panel');
-      menuOpen = !menuOpen;
-      if (menuOpen) {
-        menu.classList.add('open');
-      } else {
-        menu.classList.remove('open');
-      }
-    }
-
-    function goToGame() {
-      window.location.href = '/';
-    }
-
-    function createCard(cardData) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.dataset.rank = cardData.rank;
-      card.dataset.suit = cardData.suit;
-      card.textContent = `${cardData.rank}${cardData.suit}`;
-      if (cardData.suit === '♥' || cardData.suit === '♦') {
-        card.style.color = '#e44145';
-      }
-      card.draggable = true;
-      card.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('card', JSON.stringify({ rank: card.dataset.rank, suit: card.dataset.suit }));
-        card.style.opacity = '0.5';
-      });
-      card.addEventListener('dragend', (e) => {
-        card.style.opacity = '1';
-      });
-      card.addEventListener('dblclick', () => {
-        const key = `${cardData.rank}${cardData.suit}`;
-        unavailableCards.delete(key);
-        card.remove();
-      });
-      return card;
-    }
-
-    function setupTable() {
-      const rows = ['top', 'middle', 'bottom'];
-      const slots = [3, 5, 5];
-      rows.forEach((row, idx) => {
-        const rowEl = document.getElementById(`${row}-row`);
-        rowEl.innerHTML = '';
-        // Если для верхней строки уже есть общий бонус, оставляем его
-        if (row === 'top') {
-          const totalEl = document.getElementById('total-royalty');
-          rowEl.appendChild(totalEl);
-        }
-        // Если для ряда уже есть бонус (для верх, сред, низ), оставляем его
-        const bonusEl = document.getElementById(`${row}-royalty`);
-        rowEl.appendChild(bonusEl);
-        for (let i = 0; i < slots[idx]; i++) {
-          const slot = document.createElement('div');
-          slot.className = 'card-slot';
-          slot.addEventListener('dragover', (e) => { e.preventDefault(); });
-          slot.addEventListener('drop', (e) => {
-            e.preventDefault();
-            const cardData = JSON.parse(e.dataTransfer.getData('card'));
-            const key = `${cardData.rank}${cardData.suit}`;
-            if (!unavailableCards.has(key) && slot.children.length === 0) {
-              const card = createCard(cardData);
-              slot.appendChild(card);
-              unavailableCards.add(key);
-              slot.classList.add('taken');
+        // Функция для показа/скрытия меню
+        function toggleMenu() {
+            const menu = document.getElementById('menu-panel');
+            menuOpen = !menuOpen;
+            if (menuOpen) {
+                menu.classList.add('open');
+            } else {
+                menu.classList.remove('open');
             }
-          });
-          rowEl.appendChild(slot);
         }
-      });
-    }
 
-    function handleCardSelection(el) {
-      if (el.classList.contains('unavailable')) return;
-      if (el.dataset.rank) {
-        if (selectedRank === el.dataset.rank) {
-          selectedRank = null;
-          el.classList.remove('selected');
-        } else {
-          document.querySelectorAll('[data-rank]').forEach(i => i.classList.remove('selected'));
-          selectedRank = el.dataset.rank;
-          el.classList.add('selected');
+        function goToGame() {
+            window.location.href = '/';
         }
-      } else if (el.dataset.suit) {
-        if (selectedSuit === el.dataset.suit) {
-          selectedSuit = null;
-          el.classList.remove('selected');
-        } else {
-          document.querySelectorAll('[data-suit]').forEach(i => i.classList.remove('selected'));
-          selectedSuit = el.dataset.suit;
-          el.classList.add('selected');
-        }
-      }
-      if (selectedRank && selectedSuit) {
-        const key = `${selectedRank}${selectedSuit}`;
-        const combArea = document.getElementById('combination-area');
-        const emptySlot = combArea.querySelector('.combination-slot:not(.taken)');
-        if (emptySlot) {
-          const card = createCard({ rank: selectedRank, suit: selectedSuit });
-          emptySlot.appendChild(card);
-          unavailableCards.add(key);
-          emptySlot.classList.add('taken');
-          selectedRank = null;
-          selectedSuit = null;
-          document.querySelectorAll('.selector-item').forEach(i => i.classList.remove('selected'));
-        }
-      }
-    }
 
-    function removeSelectedCards() {
-      document.querySelectorAll('.combination-area .card').forEach(card => {
-        const key = `${card.dataset.rank}${card.dataset.suit}`;
-        unavailableCards.delete(key);
-        card.parentElement.classList.remove('taken');
-        card.remove();
-      });
-    }
-
-    function resetTraining() {
-      setupTable();
-      const combArea = document.getElementById('combination-area');
-      combArea.innerHTML = '';
-      for (let i = 0; i < 17; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'combination-slot';
-        slot.addEventListener('dragover', (e) => { e.preventDefault(); });
-        slot.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const cardData = JSON.parse(e.dataTransfer.getData('card'));
-          const key = `${cardData.rank}${cardData.suit}`;
-          if (!unavailableCards.has(key) && slot.children.length === 0) {
-            const card = createCard(cardData);
-            slot.appendChild(card);
-            unavailableCards.add(key);
-            slot.classList.add('taken');
-          }
-        });
-        combArea.appendChild(slot);
-      }
-      unavailableCards.clear();
-      selectedRank = null;
-      selectedSuit = null;
-      document.querySelectorAll('.selector-item').forEach(i => i.classList.remove('selected', 'unavailable'));
-      fetch('/update_state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selected_cards: [],
-          board: { top: [], middle: [], bottom: [] },
-          discarded_cards: [],
-          ai_settings: {
-            fantasyType: document.getElementById('fantasyType').value,
-            fantasyMode: document.getElementById('fantasyMode').checked,
-            aiTime: document.getElementById('aiTime').value,
-            iterations: document.getElementById('iterations').value,
-            stopThreshold: document.getElementById('stopThreshold').value,
-            aiType: document.getElementById('aiType').value
-          }
-        })
-      }).catch(err => {
-        console.error('Ошибка при сбросе состояния:', err);
-        alert('Произошла ошибка при сбросе состояния.');
-      });
-    }
-
-    function getGameStateFromDOM() {
-      const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
-        rank: card.dataset.rank,
-        suit: card.dataset.suit
-      }));
-      const board = {
-        top: Array.from(document.querySelectorAll('#top-row .card')).map(card => ({
-          rank: card.dataset.rank,
-          suit: card.dataset.suit
-        })),
-        middle: Array.from(document.querySelectorAll('#middle-row .card')).map(card => ({
-          rank: card.dataset.rank,
-          suit: card.dataset.suit
-        })),
-        bottom: Array.from(document.querySelectorAll('#bottom-row .card')).map(card => ({
-          rank: card.dataset.rank,
-          suit: card.dataset.suit
-        }))
-      };
-      const discardedCards = [];
-      return {
-        selected_cards: selectedCards,
-        board: board,
-        discarded_cards: discardedCards
-      };
-    }
-
-    function distributeCards() {
-      const gameState = getGameStateFromDOM();
-      const numCards = gameState.selected_cards.length;
-      if (numCards === 0) {
-        alert('Сначала добавьте карты!');
-        return;
-      }
-      const aiSettings = {
-        fantasyType: document.getElementById('fantasyType').value,
-        fantasyMode: document.getElementById('fantasyMode').checked,
-        aiTime: document.getElementById('aiTime').value,
-        iterations: document.getElementById('iterations').value,
-        stopThreshold: document.getElementById('stopThreshold').value,
-        aiType: document.getElementById('aiType').value
-      };
-      fetch('/ai_move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...gameState, ai_settings: aiSettings })
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => {
-        if (data.error) {
-          alert(data.error);
-          return;
-        }
-        // Обновляем доску
-        document.querySelectorAll('.card-slot:not(.taken)').forEach(slot => {
-          slot.innerHTML = '';
-          slot.classList.remove('taken');
-        });
-        placeCardsOnBoard(data);
-        saveGameStateToSession();
-        // Если игра завершена, вызываем анимацию роялти
-        if (isGameTerminal()) {
-          calculateAndAnimateRoyalty();
-        }
-      })
-      .catch(err => {
-        console.error('Ошибка при выполнении запроса:', err);
-        alert('Произошла ошибка при получении хода ИИ.');
-      });
-    }
-
-    function placeCardsOnBoard(data) {
-      const lines = ['top', 'middle', 'bottom'];
-      lines.forEach(line => {
-        if (data[line]) {
-          let slotIndex = 0;
-          data[line].forEach(cardData => {
-            const card = createCard(cardData);
-            const slots = document.querySelectorAll(`#${line}-row .card-slot`);
-            if (slots[slotIndex] && !slots[slotIndex].querySelector('.card')) {
-              slots[slotIndex].appendChild(card);
-              slots[slotIndex].classList.add('taken');
-              slotIndex++;
+        // Функция создания DOM-элемента карты
+        function createCard(cardData) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.rank = cardData.rank;
+            card.dataset.suit = cardData.suit;
+            card.textContent = `${cardData.rank}${cardData.suit}`;
+            if (cardData.suit === '♥' || cardData.suit === '♦') {
+                card.style.color = '#e44145';
             }
-          });
+            card.draggable = true;
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('card', JSON.stringify({ rank: card.dataset.rank, suit: card.dataset.suit }));
+                card.style.opacity = '0.5';
+            });
+            card.addEventListener('dragend', (e) => {
+                card.style.opacity = '1';
+            });
+            card.addEventListener('dblclick', () => {
+                const key = `${cardData.rank}${cardData.suit}`;
+                unavailableCards.delete(key);
+                card.remove();
+            });
+            return card;
         }
-      });
-    }
 
-    function saveGameStateToSession() {
-      const gameState = getGameStateFromDOM();
-      const aiSettings = {
-        fantasyType: document.getElementById('fantasyType').value,
-        fantasyMode: document.getElementById('fantasyMode').checked,
-        aiTime: document.getElementById('aiTime').value,
-        iterations: document.getElementById('iterations').value,
-        stopThreshold: document.getElementById('stopThreshold').value,
-        aiType: document.getElementById('aiType').value
-      };
-      fetch('/update_state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...gameState, ai_settings: aiSettings })
-      }).catch(err => {
-        console.error('Ошибка при сохранении состояния игры:', err);
-      });
-    }
-
-    function saveSettings() {
-      const aiSettings = {
-        fantasyType: document.getElementById('fantasyType').value,
-        fantasyMode: document.getElementById('fantasyMode').checked,
-        aiTime: document.getElementById('aiTime').value,
-        iterations: document.getElementById('iterations').value,
-        stopThreshold: document.getElementById('stopThreshold').value,
-        aiType: document.getElementById('aiType').value
-      };
-      fetch('/update_state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selected_cards: [],
-          board: { top: [], middle: [], bottom: [] },
-          discarded_cards: [],
-          ai_settings: aiSettings
-        })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.status === 'success') {
-          alert('Настройки сохранены!');
-          toggleMenu();
-        } else {
-          alert('Ошибка при сохранении настроек.');
+        // Функция создания игровых слотов
+        function setupTable() {
+            const rows = ['top', 'middle', 'bottom'];
+            const slots = [3, 5, 5];
+            rows.forEach((row, idx) => {
+                const rowEl = document.getElementById(`${row}-row`);
+                rowEl.innerHTML = '';
+                // Для верхнего ряда вставляем общий бонус и бонус линии
+                if (row === 'top') {
+                    const totalEl = document.createElement('div');
+                    totalEl.className = 'royalty-total';
+                    totalEl.id = 'total-royalty';
+                    rowEl.appendChild(totalEl);
+                    const bonusEl = document.createElement('div');
+                    bonusEl.className = 'royalty-label';
+                    bonusEl.id = 'top-royalty';
+                    rowEl.appendChild(bonusEl);
+                } else {
+                    const bonusEl = document.createElement('div');
+                    bonusEl.className = 'royalty-label';
+                    bonusEl.id = `${row}-royalty`;
+                    rowEl.appendChild(bonusEl);
+                }
+                for (let i = 0; i < slots[idx]; i++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'card-slot';
+                    slot.addEventListener('dragover', (e) => { e.preventDefault(); });
+                    slot.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        const cardData = JSON.parse(e.dataTransfer.getData('card'));
+                        const key = `${cardData.rank}${cardData.suit}`;
+                        if (!unavailableCards.has(key) && slot.children.length === 0) {
+                            const card = createCard(cardData);
+                            slot.appendChild(card);
+                            unavailableCards.add(key);
+                            slot.classList.add('taken');
+                        }
+                    });
+                    rowEl.appendChild(slot);
+                }
+            });
         }
-      })
-      .catch(err => {
-        console.error('Ошибка при сохранении настроек:', err);
-        alert('Произошла ошибка при сохранении настроек.');
-      });
-    }
 
-    function calculateAndAnimateRoyalty() {
-      // Вызываем эндпоинт для расчёта бонусов роялти
-      const gameState = getGameStateFromDOM();
-      fetch('/calculate_royalty', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gameState)
-      })
-      .then(resp => resp.json())
-      .then(bonus => {
-        document.getElementById('top-royalty').textContent = bonus.top ? `+${bonus.top}` : '';
-        document.getElementById('middle-royalty').textContent = bonus.middle ? `+${bonus.middle}` : '';
-        document.getElementById('bottom-royalty').textContent = bonus.bottom ? `+${bonus.bottom}` : '';
-        document.getElementById('total-royalty').textContent = bonus.total ? `+${bonus.total}` : '';
-        // Анимация появления
-        [ 'top-royalty', 'middle-royalty', 'bottom-royalty', 'total-royalty' ].forEach(id => {
-          document.getElementById(id).style.opacity = 1;
+        // Функция обработки выбора карты
+        function handleCardSelection(el) {
+            if (el.classList.contains('unavailable')) return;
+            if (el.dataset.rank) {
+                if (selectedRank === el.dataset.rank) {
+                    selectedRank = null;
+                    el.classList.remove('selected');
+                } else {
+                    document.querySelectorAll('[data-rank]').forEach(i => i.classList.remove('selected'));
+                    selectedRank = el.dataset.rank;
+                    el.classList.add('selected');
+                }
+            } else if (el.dataset.suit) {
+                if (selectedSuit === el.dataset.suit) {
+                    selectedSuit = null;
+                    el.classList.remove('selected');
+                } else {
+                    document.querySelectorAll('[data-suit]').forEach(i => i.classList.remove('selected'));
+                    selectedSuit = el.dataset.suit;
+                    el.classList.add('selected');
+                }
+            }
+            if (selectedRank && selectedSuit) {
+                const key = `${selectedRank}${selectedSuit}`;
+                const combArea = document.getElementById('combination-area');
+                const emptySlot = combArea.querySelector('.combination-slot:not(.taken)');
+                if (emptySlot) {
+                    const card = createCard({ rank: selectedRank, suit: selectedSuit });
+                    emptySlot.appendChild(card);
+                    unavailableCards.add(key);
+                    emptySlot.classList.add('taken');
+                    selectedRank = null;
+                    selectedSuit = null;
+                    document.querySelectorAll('.selector-item').forEach(i => i.classList.remove('selected'));
+                }
+            }
+        }
+
+        // Удаление выбранных карт
+        function removeSelectedCards() {
+            document.querySelectorAll('.combination-area .card').forEach(card => {
+                const key = `${card.dataset.rank}${card.dataset.suit}`;
+                unavailableCards.delete(key);
+                card.parentElement.classList.remove('taken');
+                card.remove();
+            });
+        }
+
+        // Сброс состояния тренировки (игрового поля и области комбинаций)
+        function resetTraining() {
+            setupTable();
+            const combArea = document.getElementById('combination-area');
+            combArea.innerHTML = '';
+            for (let i = 0; i < 17; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'combination-slot';
+                slot.addEventListener('dragover', (e) => { e.preventDefault(); });
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const cardData = JSON.parse(e.dataTransfer.getData('card'));
+                    const key = `${cardData.rank}${cardData.suit}`;
+                    if (!unavailableCards.has(key) && slot.children.length === 0) {
+                        const card = createCard(cardData);
+                        slot.appendChild(card);
+                        unavailableCards.add(key);
+                        slot.classList.add('taken');
+                    }
+                });
+                combArea.appendChild(slot);
+            }
+            unavailableCards.clear();
+            selectedRank = null;
+            selectedSuit = null;
+            document.querySelectorAll('.selector-item').forEach(i => i.classList.remove('selected', 'unavailable'));
+            fetch('/update_state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selected_cards: [],
+                    board: { top: [], middle: [], bottom: [] },
+                    discarded_cards: [],
+                    ai_settings: {
+                        fantasyType: document.getElementById('fantasyType').value,
+                        fantasyMode: document.getElementById('fantasyMode').checked,
+                        aiTime: document.getElementById('aiTime').value,
+                        iterations: document.getElementById('iterations').value,
+                        stopThreshold: document.getElementById('stopThreshold').value,
+                        aiType: document.getElementById('aiType').value
+                    }
+                })
+            }).catch(err => {
+                console.error('Ошибка при сбросе состояния:', err);
+                alert('Произошла ошибка при сбросе состояния.');
+            });
+        }
+
+        // Получение текущего состояния игры из DOM
+        function getGameStateFromDOM() {
+            const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
+                rank: card.dataset.rank,
+                suit: card.dataset.suit
+            }));
+            const board = {
+                top: Array.from(document.querySelectorAll('#top-row .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                })),
+                middle: Array.from(document.querySelectorAll('#middle-row .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                })),
+                bottom: Array.from(document.querySelectorAll('#bottom-row .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                }))
+            };
+            return {
+                selected_cards: selectedCards,
+                board: board,
+                discarded_cards: []  // Здесь можно добавить, если нужно, сброшенные карты
+            };
+        }
+
+        // Отправка состояния на сервер для получения хода ИИ
+        function distributeCards() {
+            const gameState = getGameStateFromDOM();
+            const numCards = gameState.selected_cards.length;
+            if (numCards === 0) {
+                alert('Сначала добавьте карты!');
+                return;
+            }
+            const aiSettings = {
+                fantasyType: document.getElementById('fantasyType').value,
+                fantasyMode: document.getElementById('fantasyMode').checked,
+                aiTime: document.getElementById('aiTime').value,
+                iterations: document.getElementById('iterations').value,
+                stopThreshold: document.getElementById('stopThreshold').value,
+                aiType: document.getElementById('aiType').value
+            };
+            fetch('/ai_move', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...gameState, ai_settings: aiSettings })
+            })
+            .then(resp => {
+                if (!resp.ok) {
+                    throw new Error(`HTTP error! status: ${resp.status}`);
+                }
+                return resp.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                // Обновляем слоты на игровом поле
+                document.querySelectorAll('.card-slot:not(.taken)').forEach(slot => {
+                    slot.innerHTML = '';
+                    slot.classList.remove('taken');
+                });
+                placeCardsOnBoard(data);
+                saveGameStateToSession();
+                if (isGameTerminal()) {
+                    calculateAndAnimateRoyalty();
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка при выполнении запроса:', err);
+                alert('Произошла ошибка при получении хода ИИ.');
+            });
+        }
+
+        // Размещение карт на игровом поле
+        function placeCardsOnBoard(data) {
+            const lines = ['top', 'middle', 'bottom'];
+            lines.forEach(line => {
+                if (data[line]) {
+                    let slotIndex = 0;
+                    data[line].forEach(cardData => {
+                        const card = createCard(cardData);
+                        const slots = document.querySelectorAll(`#${line}-row .card-slot`);
+                        if (slots[slotIndex] && !slots[slotIndex].querySelector('.card')) {
+                            slots[slotIndex].appendChild(card);
+                            slots[slotIndex].classList.add('taken');
+                            slotIndex++;
+                        }
+                    });
+                }
+            });
+        }
+
+        // Сохранение состояния игры на сервере
+        function saveGameStateToSession() {
+            const gameState = getGameStateFromDOM();
+            const aiSettings = {
+                fantasyType: document.getElementById('fantasyType').value,
+                fantasyMode: document.getElementById('fantasyMode').checked,
+                aiTime: document.getElementById('aiTime').value,
+                iterations: document.getElementById('iterations').value,
+                stopThreshold: document.getElementById('stopThreshold').value,
+                aiType: document.getElementById('aiType').value
+            };
+            fetch('/update_state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...gameState, ai_settings: aiSettings })
+            }).catch(err => {
+                console.error('Ошибка при сохранении состояния игры:', err);
+            });
+        }
+
+        // Сохранение настроек
+        function saveSettings() {
+            const aiSettings = {
+                fantasyType: document.getElementById('fantasyType').value,
+                fantasyMode: document.getElementById('fantasyMode').checked,
+                aiTime: document.getElementById('aiTime').value,
+                iterations: document.getElementById('iterations').value,
+                stopThreshold: document.getElementById('stopThreshold').value,
+                aiType: document.getElementById('aiType').value
+            };
+            fetch('/update_state', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    selected_cards: [],
+                    board: { top: [], middle: [], bottom: [] },
+                    discarded_cards: [],
+                    ai_settings: aiSettings
+                })
+            })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Настройки сохранены!');
+                    toggleMenu();
+                } else {
+                    alert('Ошибка при сохранении настроек.');
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка при сохранении настроек:', err);
+                alert('Произошла ошибка при сохранении настроек.');
+            });
+        }
+
+        // Расчёт и анимация бонусов роялти согласно правилам
+        function calculateAndAnimateRoyalty() {
+            fetch('/calculate_royalty', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(getGameStateFromDOM())
+            })
+            .then(resp => resp.json())
+            .then(bonus => {
+                document.getElementById('top-royalty').textContent = bonus.top ? `+${bonus.top}` : '';
+                document.getElementById('middle-royalty').textContent = bonus.middle ? `+${bonus.middle}` : '';
+                document.getElementById('bottom-royalty').textContent = bonus.bottom ? `+${bonus.bottom}` : '';
+                document.getElementById('total-royalty').textContent = bonus.total ? `+${bonus.total}` : '';
+                [ 'top-royalty', 'middle-royalty', 'bottom-royalty', 'total-royalty' ].forEach(id => {
+                    document.getElementById(id).style.opacity = 1;
+                });
+            })
+            .catch(err => console.error('Ошибка расчёта роялти:', err));
+        }
+
+        // Функция проверки, что все слоты заполнены (конец игры)
+        function isGameTerminal() {
+            const slots = document.querySelectorAll('.card-slot');
+            const cards = document.querySelectorAll('.card');
+            return slots.length === cards.length;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupTable();
+            const combArea = document.getElementById('combination-area');
+            for (let i = 0; i < 17; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'combination-slot';
+                slot.addEventListener('dragover', (e) => { e.preventDefault(); });
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const cardData = JSON.parse(e.dataTransfer.getData('card'));
+                    const key = `${cardData.rank}${cardData.suit}`;
+                    if (!unavailableCards.has(key) && slot.children.length === 0) {
+                        const card = createCard(cardData);
+                        slot.appendChild(card);
+                        unavailableCards.add(key);
+                        slot.classList.add('taken');
+                    }
+                });
+                combArea.appendChild(slot);
+            }
+            document.querySelectorAll('.selector-item').forEach(item => {
+                item.addEventListener('click', () => handleCardSelection(item));
+            });
+            document.getElementById('aiTime').addEventListener('input', (e) => {
+                document.getElementById('aiTimeValue').textContent = e.target.value;
+            });
+            document.getElementById('iterations').addEventListener('input', (e) => {
+                document.getElementById('iterationsValue').textContent = e.target.value;
+            });
+            document.getElementById('stopThreshold').addEventListener('input', (e) => {
+                document.getElementById('stopThresholdValue').textContent = e.target.value;
+            });
+            fetch('/get_initial_game_state')
+            .then(resp => resp.json())
+            .then(initialState => {
+                if (initialState) {
+                    sessionStorage.setItem('game_state', JSON.stringify(initialState));
+                }
+            })
+            .catch(err => console.error('Error fetching initial state:', err));
         });
-      })
-      .catch(err => console.error('Ошибка расчёта роялти:', err));
-    }
+    </script>
 
-    function isGameTerminal() {
-      // Проверяем, заполнены ли все слоты
-      return document.querySelectorAll('.card-slot').length === document.querySelectorAll('.card').length;
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      setupTable();
-      const combArea = document.getElementById('combination-area');
-      for (let i = 0; i < 17; i++) {
-        const slot = document.createElement('div');
-        slot.className = 'combination-slot';
-        slot.addEventListener('dragover', (e) => { e.preventDefault(); });
-        slot.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const cardData = JSON.parse(e.dataTransfer.getData('card'));
-          const key = `${cardData.rank}${cardData.suit}`;
-          if (!unavailableCards.has(key) && slot.children.length === 0) {
-            const card = createCard(cardData);
-            slot.appendChild(card);
-            unavailableCards.add(key);
-            slot.classList.add('taken');
-          }
-        });
-        combArea.appendChild(slot);
-      }
-      document.querySelectorAll('.selector-item').forEach(item => {
-        item.addEventListener('click', () => handleCardSelection(item));
-      });
-      document.getElementById('aiTime').addEventListener('input', (e) => {
-        document.getElementById('aiTimeValue').textContent = e.target.value;
-      });
-      document.getElementById('iterations').addEventListener('input', (e) => {
-        document.getElementById('iterationsValue').textContent = e.target.value;
-      });
-      document.getElementById('stopThreshold').addEventListener('input', (e) => {
-        document.getElementById('stopThresholdValue').textContent = e.target.value;
-      });
-      fetch('/get_initial_game_state')
-      .then(resp => resp.json())
-      .then(initialState => {
-        if (initialState) {
-          sessionStorage.setItem('game_state', JSON.stringify(initialState));
-          // Обновляем UI, если необходимо
-        }
-      })
-      .catch(err => console.error('Error fetching initial state:', err));
-    });
-  </script>
-
-  <script id="game_state" type="application/json">
-    {{ game_state | tojson }}
-  </script>
+    <script id="game_state" type="application/json">
+        {{ game_state | tojson }}
+    </script>
 </body>
 </html>
