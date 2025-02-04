@@ -832,11 +832,11 @@
                     console.error('Ошибка при выполнении запроса:', error);
                     alert('Произошла ошибка при получении хода ИИ.');
                 });
-            } else {
-                // This else block is now likely unreachable because of the initial numCards === 0 check
-                console.log("No cards to distribute, saving game state");
-                saveGameStateToSession();
-            }
+            } 
+            // else {
+            //     console.log("No cards to distribute, saving game state");
+            //     saveGameStateToSession();
+            // }  УДАЛИЛИ ЭТОТ ELSE
         }
 
         function placeCardsOnBoard(data) {
@@ -901,7 +901,7 @@
 
         function saveGameStateToSession() {
             const gameState = getGameStateFromDOM();
-                        const aiSettings = {
+            const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
                 fantasyMode: document.getElementById('fantasyMode').checked,
                 aiTime: document.getElementById('aiTime').value,
