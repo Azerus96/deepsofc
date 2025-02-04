@@ -37,7 +37,7 @@ class Card:
         return Card(card_dict['rank'], card_dict['suit'])
 
     @staticmethod
-    def get_all_cards():
+    def get_all_cards(self):
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
 class Hand:
@@ -161,14 +161,14 @@ class GameState:
         num_cards = len(self.selected_cards)
         actions = []
 
-        print(f"get_actions called - num_cards: {num_cards}, selected_cards: {self.selected_cards}, board: {self.board}") # Added logging
+        print(f"get_actions called - num_cards: {num_cards}, selected_cards: {self.selected_cards}, board: {self.board}")
 
         if num_cards > 0:
-            try: # Added try-except block
+            try:
                 if num_cards == 5:
                     # Generate all possible permutations for placing 5 cards
                     for p in itertools.permutations(self.selected_cards.cards):
-                        if self.evaluate_hand([p[0]])[0] != "Three of a Kind": # Avoid placing a set on the top row for the first 5 cards
+                        if self.evaluate_hand([p[0]])[0] != "Three of a Kind":
                             actions.append({
                                 'top': [p[0]],
                                 'middle': [p[1], p[2]],
@@ -191,17 +191,60 @@ class GameState:
                                     }
                                     actions.append(action)
                 elif num_cards >= 13:
-                    # Generate permutations for fantasy mode
-                    for p in itertools.permutations(self.selected_cards.cards):
-                        actions.append({
-                            'top': list(p[:3]),
-                            'middle': list(p[3:8]),
-                            'bottom': list(p[8:13]),
-                            'discarded': list(p[13:])
-                        })
+                    # Prioritize staying in fantasy mode if already in fantasy
+                    if self.ai_settings.get('fantasyMode'):
+                        valid_fantasy_repeats = []
+                        for p in itertools.permutations(self.selected_cards.cards):
+                            action = {
+                                'top': list(p[:3]),
+                                'middle': list(p[3:8]),
+                                'bottom': list(p[8:13]),
+                                'discarded': list(p[13:])
+                            }
+                            if self.is_valid_fantasy_repeat(action):
+                                valid_fantasy_repeats.append(action)
+
+                        if valid_fantasy_repeats:
+                            # Choose the action that maximizes royalty among valid fantasy repeats
+                            actions = sorted(valid_fantasy_repeats, key=lambda a: self.calculate_action_royalty(a), reverse=True)
+                        else:
+                            # If no valid fantasy repeat, proceed with the most profitable setup
+                            actions = sorted([
+                                {
+                                    'top': list(p[:3]),
+                                    'middle': list(p[3:8]),
+                                    'bottom': list(p[8:13]),
+                                    'discarded': list(p[13:])
+                                } for p in itertools.permutations(self.selected_cards.cards)
+                            ], key=lambda a: self.calculate_action_royalty(a), reverse=True)
+                    else:
+                        # Prioritize entering fantasy mode if not already in fantasy
+                        valid_fantasy_entries = []
+                        for p in itertools.permutations(self.selected_cards.cards):
+                            action = {
+                                'top': list(p[:3]),
+                                'middle': list(p[3:8]),
+                                'bottom': list(p[8:13]),
+                                'discarded': list(p[13:])
+                            }
+                            if self.is_valid_fantasy_entry(action):
+                                valid_fantasy_entries.append(action)
+
+                        if valid_fantasy_entries:
+                            actions = valid_fantasy_entries
+                        else:
+                            # If no valid fantasy entry, proceed with normal permutations
+                            actions = [
+                                {
+                                    'top': list(p[:3]),
+                                    'middle': list(p[3:8]),
+                                    'bottom': list(p[8:13]),
+                                    'discarded': list(p[13:])
+                                } for p in itertools.permutations(self.selected_cards.cards)
+                            ]
+
                 else:
                     # Handle cases where num_cards is not 3, 5, or >= 13
-                    # Example: Allow placing 1 or 2 cards if available
                     if num_cards == 1 or num_cards == 2:
                         for top_count in range(min(num_cards + 1, 3 - len(self.board.top))):
                             for middle_count in range(min(num_cards - top_count + 1, 5 - len(self.board.middle))):
@@ -215,11 +258,56 @@ class GameState:
                                     }
                                     actions.append(action)
             except Exception as e:
-                print(f"Error in get_actions: {e}") # Log exception
-                return [] # Return empty actions in case of error
+                print(f"Error in get_actions: {e}")
+                return []
 
-        print(f"Generated actions: {actions}") # Log generated actions
+        print(f"Generated actions: {actions}")
         return actions
+
+    def is_valid_fantasy_entry(self, action):
+        """Checks if an action leads to a valid fantasy mode entry."""
+        new_board = Board()
+        new_board.top = self.board.top + action.get('top', [])
+        new_board.middle = self.board.middle + action.get('middle', [])
+        new_board.bottom = self.board.bottom + action.get('bottom', [])
+
+        temp_state = GameState(board=new_board, ai_settings=self.ai_settings)
+        if temp_state.is_dead_hand():
+            return False
+
+        top_rank, _ = temp_state.evaluate_hand(new_board.top)
+        return top_rank <= 8 and new_board.top[0].rank in ['Q', 'K', 'A']
+
+    def is_valid_fantasy_repeat(self, action):
+        """Checks if an action leads to a valid fantasy mode repeat."""
+        new_board = Board()
+        new_board.top = self.board.top + action.get('top', [])
+        new_board.middle = self.board.middle + action.get('middle', [])
+        new_board.bottom = self.board.bottom + action.get('bottom', [])
+
+        temp_state = GameState(board=new_board, ai_settings=self.ai_settings)
+        if temp_state.is_dead_hand():
+            return False
+
+        top_rank, _ = temp_state.evaluate_hand(new_board.top)
+        bottom_rank, _ = temp_state.evaluate_hand(new_board.bottom)
+
+        if top_rank == 7:  # Set in top row
+            return True
+        if bottom_rank <= 3:  # Four of a Kind or better in bottom row
+            return True
+
+        return False
+
+    def calculate_action_royalty(self, action):
+        """Calculates the royalty for a given action."""
+        new_board = Board()
+        new_board.top = self.board.top + action.get('top', [])
+        new_board.middle = self.board.middle + action.get('middle', [])
+        new_board.bottom = self.board.bottom + action.get('bottom', [])
+
+        temp_state = GameState(board=new_board, ai_settings=self.ai_settings)
+        return temp_state.calculate_royalties()
 
     def apply_action(self, action):
         """Applies an action to the current state and returns the new state."""
@@ -284,30 +372,38 @@ class GameState:
 
         return top_rank > middle_rank or middle_rank > bottom_rank
 
+    def get_line_royalties(self, line):
+        """Calculates royalties for a specific line."""
+        cards = getattr(self.board, line)
+        if not cards:
+            return 0
+
+        rank, _ = self.evaluate_hand(cards)
+        if line == 'top':
+            if rank == 7:  # Three of a Kind
+                return 10 + Card.RANKS.index(cards[0].rank)
+            elif rank == 8:  # One Pair
+                return self.get_pair_bonus(cards)
+            elif rank == 9:  # High Card
+                return self.get_high_card_bonus(cards)
+        elif line == 'middle':
+            if rank <= 6:
+                return self.get_royalties_for_hand(rank) * 2
+        elif line == 'bottom':
+            if rank <= 6:
+                return self.get_royalties_for_hand(rank)
+        return 0
+
     def calculate_royalties(self):
         """Calculates royalties for the current state based on the rules."""
-
         if self.is_dead_hand():
-            return 0 # No royalties for a dead hand
+            return 0
 
-        royalties = 0
+        royalties = {}
         lines = {'top': self.board.top, 'middle': self.board.middle, 'bottom': self.board.bottom}
 
         for line_name, cards in lines.items():
-            rank, _ = self.evaluate_hand(cards)
-            if line_name == 'top':
-                if rank == 7: # Three of a Kind
-                    royalties += 10 + Card.RANKS.index(cards[0].rank) # Royalty for sets on top
-                elif rank == 8: # One Pair
-                    royalties += self.get_pair_bonus(cards)
-                elif rank == 9: # High Card
-                    royalties += self.get_high_card_bonus(cards)
-            elif line_name == 'middle':
-                if rank <= 6: # Straight or better
-                    royalties += self.get_royalties_for_hand(rank) * 2 # Double royalties for middle
-            elif line_name == 'bottom':
-                if rank <= 6: # Straight or better
-                    royalties += self.get_royalties_for_hand(rank)
+            royalties[line_name] = self.get_line_royalties(line_name)
 
         return royalties
 
@@ -341,8 +437,7 @@ class GameState:
         ranks = [card.rank for card in cards]
         for rank in Card.RANKS[::-1]:  # Iterate in reverse to find the highest pair first
             if ranks.count(rank) == 2:
-                return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0 # Royalty for pairs on top
-        return 0
+                return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0
 
     def get_high_card_bonus(self, cards):
         """Calculates the bonus for a high card in the top line."""
@@ -351,8 +446,7 @@ class GameState:
         ranks = [card.rank for card in cards]
         if len(set(ranks)) == 3:  # Three different ranks
             high_card = max(ranks, key=Card.RANKS.index)
-            return 1 if high_card == 'A' else 0 # Royalty for high card A on top
-        return 0
+            return 1 if high_card == 'A' else 0
 
     def get_fantasy_bonus(self):
         """Calculates the bonus for fantasy mode."""
@@ -597,15 +691,15 @@ class CFRAgent:
         print(f"Available actions: {actions}")
 
         if not actions:
-            result['move'] = {'error': 'Нет доступных ходов'} # Keep error message
-            print("No actions available, returning error.") # Added log
+            result['move'] = {'error': 'Нет доступных ходов'}
+            print("No actions available, returning error.")
             return
 
         info_set = game_state.get_information_set()
         print(f"Info set: {info_set}")
 
         if info_set in self.nodes:
-            strategy = self.nodes[info_set].get_average_strategy()
+            strategy = self.nodes[info_set].get_average_strategy() 
             print(f"Strategy: {strategy}")
             best_move = max(strategy, key=strategy.get) if strategy else None
         else:
@@ -754,6 +848,67 @@ class CFRAgent:
 
         return False
 
+    def evaluate_line_strength(self, cards, line):
+        """Evaluates the strength of a line with more granularity."""
+        if not cards:
+            return 0
+
+        rank, _ = self.evaluate_hand(cards)
+        score = 0
+
+        if line == 'top':
+            if rank == 7:  # Three of a Kind
+                score = 15 + Card.RANKS.index(cards[0].rank) * 0.1
+            elif rank == 8:  # One Pair
+                score = 5 + self.get_pair_bonus(cards)
+            elif rank == 9:  # High Card
+                score = 1 + self.get_high_card_bonus(cards)
+        elif line == 'middle':
+            if rank == 1:  # Royal Flush
+                score = 150
+            elif rank == 2:  # Straight Flush
+                score = 100 + Card.RANKS.index(cards[-1].rank) * 0.1  # High card matters
+            elif rank == 3:  # Four of a Kind
+                score = 80 + Card.RANKS.index(cards[1].rank) * 0.1
+            elif rank == 4:  # Full House
+                score = 60 + Card.RANKS.index(cards[2].rank) * 0.1  # Rank of the three-of-a-kind
+            elif rank == 5:  # Flush
+                score = 40 + Card.RANKS.index(cards[-1].rank) * 0.1  # High card matters
+            elif rank == 6:  # Straight
+                score = 20 + Card.RANKS.index(cards[-1].rank) * 0.1  # High card matters
+            elif rank == 7:  # Three of a Kind
+                score = 10 + Card.RANKS.index(cards[0].rank) * 0.1
+            elif rank == 8:  # Two Pair
+                score = 5 + Card.RANKS.index(cards[1].rank) * 0.01 + Card.RANKS.index(cards[3].rank) * 0.001
+            elif rank == 9:  # One Pair
+                score = 2 + Card.RANKS.index(cards[1].rank) * 0.01
+            elif rank == 10:  # High Card
+                score = Card.RANKS.index(cards[-1].rank) * 0.001
+        elif line == 'bottom':
+            # Similar scoring as middle line, but with slightly lower weights
+            if rank == 1:  # Royal Flush
+                score = 120
+            elif rank == 2:  # Straight Flush
+                score = 80 + Card.RANKS.index(cards[-1].rank) * 0.1
+            elif rank == 3:  # Four of a Kind
+                score = 60 + Card.RANKS.index(cards[1].rank) * 0.1
+            elif rank == 4:  # Full House
+                score = 40 + Card.RANKS.index(cards[2].rank) * 0.1
+            elif rank == 5:  # Flush
+                score = 30 + Card.RANKS.index(cards[-1].rank) * 0.1
+            elif rank == 6:  # Straight
+                score = 15 + Card.RANKS.index(cards[-1].rank) * 0.1
+            elif rank == 7:  # Three of a Kind
+                score = 8 + Card.RANKS.index(cards[0].rank) * 0.1
+            elif rank == 8:  # Two Pair
+                score = 4 + Card.RANKS.index(cards[1].rank) * 0.01 + Card.RANKS.index(cards[3].rank) * 0.001
+            elif rank == 9:  # One Pair
+                score = 1 + Card.RANKS.index(cards[1].rank) * 0.01
+            elif rank == 10:  # High Card
+                score = Card.RANKS.index(cards[-1].rank) * 0.001
+
+        return score
+
     def baseline_evaluation(self, state):
         """Heuristic evaluation of the game state."""
         if state.is_dead_hand():
@@ -761,14 +916,14 @@ class CFRAgent:
 
         score = 0
 
-        # 1. Hand strength evaluation
-        score += state.get_line_score('top', state.board.top) * 3  # Top line is more important
-        score += state.get_line_score('middle', state.board.middle) * 2
-        score += state.get_line_score('bottom', state.board.bottom) * 1
+        # 1. Hand strength evaluation (more granular)
+        score += self.evaluate_line_strength(state.board.top, 'top')
+        score += self.evaluate_line_strength(state.board.middle, 'middle')
+        score += self.evaluate_line_strength(state.board.bottom, 'bottom')
 
         # 2. Potential for improvement
         available_cards = state.get_available_cards()
-        score += self.calculate_potential(state.board.top, 'top', state.board, available_cards) * 5  # Higher weight for potential
+        score += self.calculate_potential(state.board.top, 'top', state.board, available_cards) * 5
         score += self.calculate_potential(state.board.middle, 'middle', state.board, available_cards) * 3
         score += self.calculate_potential(state.board.bottom, 'bottom', state.board, available_cards) * 2
 
@@ -780,6 +935,16 @@ class CFRAgent:
         # 4. Fantasy mode bonus
         if any(card.rank in ['Q', 'K', 'A'] for card in state.board.top):
             score += state.get_fantasy_bonus()
+
+        # 5. Positional awareness (penalize hands close to being dead)
+        top_score = state.get_line_score('top', state.board.top)
+        middle_score = state.get_line_score('middle', state.board.middle)
+        bottom_score = state.get_line_score('bottom', state.board.bottom)
+
+        if middle_score > 0 and top_score > 0 and middle_score - top_score < 2:
+            score -= 5  # Penalty for middle hand being too close to top hand in strength
+        if bottom_score > 0 and middle_score > 0 and bottom_score - middle_score < 2:
+            score -= 5  # Penalty for bottom hand being too close to middle hand in strength
 
         return score
 
