@@ -362,6 +362,16 @@
         }
     </style>
 </head>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Training Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* ... (CSS styles - no changes needed) ... */
+    </style>
+</head>
 <body>
     <button class="menu-toggle" onclick="toggleMenu()">
         <span class="material-icons">menu</span>
@@ -496,6 +506,7 @@
         }
 
         function createCard(cardData) {
+            console.log("Creating card:", cardData); // added log
             const card = document.createElement('div');
             card.className = 'card';
             card.dataset.rank = cardData.rank;
@@ -542,6 +553,7 @@
         }
 
         function setupTable() {
+            console.log("Setting up table"); // added log
             const rows = ['top', 'middle', 'bottom'];
             const numCards = [3, 5, 5];
 
@@ -578,6 +590,7 @@
         }
 
         function handleCardSelection(element) {
+            console.log("Handling card selection:", element); // added log
             if (element.classList.contains('unavailable')) {
                 return;
             }
@@ -622,6 +635,7 @@
         }
 
         function removeSelectedCards() {
+            console.log("Removing selected cards"); // added log
             const combinationArea = document.getElementById('combination-area');
             combinationArea.querySelectorAll('.card').forEach(card => {
                 const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
@@ -633,6 +647,7 @@
         }
 
         function resetTraining() {
+            console.log("Resetting training"); // added log
             const fragment = document.createDocumentFragment();
 
             setupTable();
@@ -670,9 +685,9 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    selected_cards: [],
-                    board: { top: [], middle: [], bottom: [] },
-                    discarded_cards: [],
+                    selected_cards: [], // Explicitly initialize to empty array
+                    board: { top: [], middle: [], bottom: [] }, // Explicitly initialize to empty arrays
+                    discarded_cards: [], // Explicitly initialize to empty array
                     ai_settings: {
                         fantasyType: document.getElementById('fantasyType').value,
                         fantasyMode: document.getElementById('fantasyMode').checked,
@@ -694,7 +709,7 @@
                 rank: card.dataset.rank,
                 suit: card.dataset.suit
             }));
-          console.log("Selected cards from DOM:", selectedCards); // added log
+            console.log("Selected cards from DOM:", selectedCards);
 
             const board = {
                 top: Array.from(document.querySelectorAll('#top-row .card')).map(card => ({
@@ -716,6 +731,8 @@
                 return { rank, suit };
             });
 
+            console.log("Game state from DOM:", { selected_cards: selectedCards, board: board, discarded_cards: discardedCards });
+
             return {
                 selected_cards: selectedCards,
                 board: board,
@@ -726,12 +743,12 @@
         function distributeCards() {
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
-            console.log("Current game state:", gameState); // added log
+            console.log("Current game state:", gameState);
             console.log("Number of selected cards:", numCards);
 
             // Correctly check if cards have been placed on the board
             const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
-            console.log("Cards placed on the board:", cardsPlaced); // added log
+            console.log("Cards placed on the board:", cardsPlaced);
 
             if (numCards === 0 && !cardsPlaced) {
                 alert('Сначала добавьте карты!');
@@ -740,7 +757,7 @@
 
             // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
             if (cardsPlaced || numCards > 0) {
-                console.log("Calling AI to distribute cards"); // added log
+                console.log("Calling AI to distribute cards");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
                     fantasyMode: document.getElementById('fantasyMode').checked,
@@ -764,7 +781,7 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log("AI move response:", data); // added log
+                    console.log("AI move response:", data);
                     if (data.error) {
                         alert(data.error);
                         return;
@@ -825,12 +842,13 @@
                 });
             } else {
                 // This else block is now likely unreachable because of the initial numCards === 0 check
-                console.log("No cards to distribute, saving game state"); // added log
+                console.log("No cards to distribute, saving game state");
                 saveGameStateToSession();
             }
         }
 
         function placeCardsOnBoard(data) {
+            console.log("Placing cards on board:", data); // added log
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
                 if (data[line]) {
@@ -862,6 +880,7 @@
         }
 
         function displayRoyalties(royalties) {
+            console.log("Displaying royalties:", royalties); // added log
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
                 const royaltyValue = royalties[line];
@@ -885,6 +904,7 @@
         }
 
         function displayTotalRoyalty(totalRoyalty) {
+            console.log("Displaying total royalty:", totalRoyalty); // added log
             const totalRoyaltyElement = document.getElementById('total-royalty');
             totalRoyaltyElement.textContent = `Total Royalty: ${totalRoyalty}`;
         }
@@ -900,7 +920,7 @@
                 aiType: document.getElementById('aiType').value
             };
 
-            console.log("Saving game state to session:", { ...gameState, ai_settings: aiSettings }); // added log
+            console.log("Saving game state to session:", { ...gameState, ai_settings: aiSettings });
 
             fetch('/update_state', {
                 method: 'POST',
@@ -927,6 +947,8 @@
                 aiType: document.getElementById('aiType').value
             };
 
+            console.log("Saving settings:", aiSettings); // added log
+
             fetch('/update_state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -944,6 +966,7 @@
                 return response.json();
             })
             .then(data => {
+                console.log("Response from saving settings:", data); // added log
                 if (data.status === 'success') {
                     alert('Настройки сохранены!');
                     toggleMenu();
@@ -958,6 +981,7 @@
         }
 
         function removeCardFromUnavailable(cardKey) {
+            console.log("Removing card from unavailable:", cardKey); // added log
             if (unavailableCards.has(cardKey)) {
                 unavailableCards.delete(cardKey);
                 const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
@@ -966,6 +990,7 @@
         }
 
         function updateSelectorItemAvailability(rank, suit) {
+            console.log("Updating selector item availability for:", rank, suit); // added log
             let rankCount = document.querySelectorAll(`.card[data-rank="${rank}"]`).length;
             let suitCount = document.querySelectorAll(`.card[data-suit="${suit}"]`).length;
 
