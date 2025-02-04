@@ -428,7 +428,7 @@ class GameState:
             return 0
 
         rank, score = self.evaluate_hand(cards)
-            return score
+        return score
 
     def get_pair_bonus(self, cards):
         """Calculates the bonus for a pair in the top line."""
