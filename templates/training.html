@@ -726,8 +726,8 @@
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
 
-            // Check if cards have been placed on the board
-            const cardsPlaced = Object.values(gameState.board).flat().some(card => card.rank);
+                // Correctly check if cards have been placed on the board
+            const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
 
             if (numCards === 0 && !cardsPlaced) {
                 alert('Сначала добавьте карты!');
@@ -911,7 +911,7 @@
         function saveSettings() {
             const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
-                                fantasyMode: document.getElementById('fantasyMode').checked,
+                fantasyMode: document.getElementById('fantasyMode').checked,
                 aiTime: document.getElementById('aiTime').value,
                 iterations: document.getElementById('iterations').value,
                 stopThreshold: document.getElementById('stopThreshold').value,
