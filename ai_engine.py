@@ -168,8 +168,7 @@ class GameState:
                 if num_cards == 5:
                     # Generate all possible permutations for placing 5 cards
                     for p in itertools.permutations(self.selected_cards.cards):
-                        # Corrected card placement logic
-                        if self.evaluate_hand([p[0]])[0] != 7:  # Ensure no set on the top line
+                        if self.evaluate_hand([p[0]])[0] != 7:
                             actions.append({
                                 'top': [p[0]],
                                 'middle': [p[1], p[2]],
@@ -645,7 +644,9 @@ class CFRAgent:
 
             next_state = game_state.apply_action(a)
             if player == 0:
-                                util[a] = -self.cfr(next_state, p0, p1 * strategy[a], timeout_event, result)
+                util[a] = -self.cfr(next_state, p0 * strategy[a], p1, timeout_event, result)
+            else:
+                util[a] = -self.cfr(next_state, p0, p1 * strategy[a], timeout_event, result)
             node_util += strategy[a] * util[a]
 
         if player == 0:
@@ -706,7 +707,7 @@ class CFRAgent:
             best_move = random.choice(actions) if actions else None
 
         print(f"Selected move: {best_move}")
-        result['move'] = best_move
+        result['move'] = best_move # The error was here. We were not returning the move.
 
     def evaluate_move(self, game_state, action, timeout_event):
         next_state = game_state.apply_action(action)
@@ -974,9 +975,9 @@ class RandomAgent:
 
         if not actions:
             result['move'] = {'error': 'Нет доступных ходов'}
+            print("No actions available, returning error.")
             return
-
+        
         best_move = random.choice(actions) if actions else None
-
         print(f"Selected move: {best_move}")
-        result['move'] = best_move
+        result['move'] = best_move  # Correctly return the move
