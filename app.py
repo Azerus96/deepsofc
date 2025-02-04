@@ -10,7 +10,7 @@ from threading import Thread, Event
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)  # Set the logging level to INFO
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -22,7 +22,7 @@ random_agent = RandomAgent()
 # Function to initialize the AI agent with settings
 def initialize_ai_agent(ai_settings):
     global cfr_agent
-    app.logger.info(f"Initializing AI agent with settings: {ai_settings}")  # Use app.logger
+    app.logger.info(f"Initializing AI agent with settings: {ai_settings}")
     iterations = int(ai_settings.get('iterations', 1000))
     stop_threshold = float(ai_settings.get('stopThreshold', 0.001))
     cfr_agent = ai_engine.CFRAgent(iterations=iterations, stop_threshold=stop_threshold)
@@ -30,11 +30,11 @@ def initialize_ai_agent(ai_settings):
     if os.environ.get("AI_PROGRESS_TOKEN"):
         try:
             cfr_agent.load_progress()
-            app.logger.info("AI progress loaded successfully.")  # Use app.logger
+            app.logger.info("AI progress loaded successfully.")
         except Exception as e:
-            app.logger.error(f"Error loading AI progress: {e}")  # Use app.logger
+            app.logger.error(f"Error loading AI progress: {e}")
     else:
-        app.logger.info("AI_PROGRESS_TOKEN not set. Progress loading disabled.")  # Use app.logger
+        app.logger.info("AI_PROGRESS_TOKEN not set. Progress loading disabled.")
 
 # Initialize AI agent with default settings on app start
 initialize_ai_agent({})
@@ -45,10 +45,10 @@ def home():
 
 @app.route('/training')
 def training():
-    app.logger.info("Entering /training route")  # Use app.logger
+    app.logger.info("Entering /training route")
     # Initialize game state if it doesn't exist or reset if needed
     if 'game_state' not in session:
-        app.logger.info("Initializing new game state in session")  # Use app.logger
+        app.logger.info("Initializing new game state in session")
         session['game_state'] = {
             'selected_cards': [],
             'board': {'top': [], 'middle': [], 'bottom': []},
@@ -68,69 +68,69 @@ def training():
         initialize_ai_agent(session['game_state']['ai_settings'])
         session['previous_ai_settings'] = session['game_state']['ai_settings'].copy()
 
-    app.logger.info(f"Current game state in session: {session['game_state']}")  # Use app.logger
+    app.logger.info(f"Current game state in session: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
 
 @app.route('/update_state', methods=['POST'])
 def update_state():
-    app.logger.info("Entering /update_state route")  # Use app.logger
+    app.logger.info("Entering /update_state route")
     if not request.is_json:
-        app.logger.error("Error: Request is not JSON")  # Use app.logger
+        app.logger.error("Error: Request is not JSON")
         return jsonify({'error': 'Content type must be application/json'}), 400
 
     try:
         game_state = request.get_json()
-        app.logger.info(f"Received game state update: {game_state}")  # Use app.logger
+        app.logger.info(f"Received game state update: {game_state}")
 
         if not isinstance(game_state, dict):
-            app.logger.error("Error: Invalid game state format (not a dictionary)")  # Use app.logger
+            app.logger.error("Error: Invalid game state format (not a dictionary)")
             return jsonify({'error': 'Invalid game state format'}), 400
 
         # Merge the incoming data with the existing session data
         if 'game_state' not in session:
-            app.logger.info("Initializing game state in session from request")  # Use app.logger
+            app.logger.info("Initializing game state in session from request")
             session['game_state'] = game_state
         else:
-            app.logger.info("Merging received game state with session data")  # Use app.logger
+            app.logger.info("Merging received game state with session data")
             for key, value in game_state.items():
                 if key == 'selected_cards':
-                    app.logger.info("Updating selected_cards")  # Use app.logger
+                    app.logger.info("Updating selected_cards")
                     # Ensure that selected_cards are properly merged
                     if 'selected_cards' not in session['game_state']:
                         session['game_state']['selected_cards'] = []
-
+                    
                     # Convert dictionaries to Card objects
                     session['game_state']['selected_cards'] = [Card.from_dict(card_dict) for card_dict in value if isinstance(card_dict, dict)]
-                    app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")  # Use app.logger
+                    app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
                 elif key == 'board':
-                    app.logger.info("Updating board")  # Use app.logger
+                    app.logger.info("Updating board")
                     for line in ['top', 'middle', 'bottom']:
                         if line in value:
                             session['game_state']['board'][line] = [Card.from_dict(card_dict) for card_dict in value[line] if isinstance(card_dict, dict)]
-                    app.logger.info(f"Updated board: {session['game_state']['board']}")  # Use app.logger
+                    app.logger.info(f"Updated board: {session['game_state']['board']}")
                 elif key in session['game_state'] and isinstance(session['game_state'][key], list):
-                    app.logger.info(f"Extending list for key: {key}")  # Use app.logger
+                    app.logger.info(f"Extending list for key: {key}")
                     session['game_state'][key].extend(value)
                 elif key in session['game_state'] and isinstance(session['game_state'][key], dict):
-                    app.logger.info(f"Updating dictionary for key: {key}")  # Use app.logger
+                    app.logger.info(f"Updating dictionary for key: {key}")
                     session['game_state'][key].update(value)
                 else:
-                    app.logger.info(f"Setting new value for key: {key}")  # Use app.logger
+                    app.logger.info(f"Setting new value for key: {key}")
                     session['game_state'][key] = value
 
         session.modified = True
 
         # Reinitialize AI agent if settings have changed
         if game_state['ai_settings'] != session.get('previous_ai_settings'):
-            app.logger.info("AI settings changed, reinitializing AI agent")  # Use app.logger
+            app.logger.info("AI settings changed, reinitializing AI agent")
             initialize_ai_agent(game_state['ai_settings'])
             session['previous_ai_settings'] = game_state['ai_settings'].copy()
 
-        app.logger.info(f"Updated game state in session: {session['game_state']}")  # Use app.logger
+        app.logger.info(f"Updated game state in session: {session['game_state']}")
         return jsonify({'status': 'success'})
 
     except Exception as e:
-        app.logger.error(f"Error in update_state: {e}")  # Use app.logger
+        app.logger.error(f"Error in update_state: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/ai_move', methods=['POST'])
@@ -169,7 +169,7 @@ def ai_move():
             board=board,
             discarded_cards=discarded_cards,
             ai_settings=ai_settings,
-            deck=ai_engine.Card.get_all_cards()
+            deck=ai_engine.Card.get_all_cards()  # Corrected call to get_all_cards()
         )
         app.logger.info(f"Created game state: {game_state}")
 
