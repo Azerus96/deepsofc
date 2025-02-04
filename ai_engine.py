@@ -40,14 +40,6 @@ class Card:
     def get_all_cards(self):
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
-
-    def to_dict(self):
-        return {'rank': self.rank, 'suit': self.suit}
-
-    @staticmethod
-    def from_dict(card_dict):
-        return Card(card_dict['rank'], card_dict['suit'])
-
 class Hand:
     def __init__(self, cards=None):
         self.cards = cards if cards is not None else []
@@ -436,7 +428,7 @@ class GameState:
             return 0
 
         rank, score = self.evaluate_hand(cards)
-        return score
+                return score
 
     def get_pair_bonus(self, cards):
         """Calculates the bonus for a pair in the top line."""
@@ -707,7 +699,7 @@ class CFRAgent:
         print(f"Info set: {info_set}")
 
         if info_set in self.nodes:
-            strategy = self.nodes[info_set].get_average_strategy() 
+            strategy = self.nodes[info_set].get_average_strategy()
             print(f"Strategy: {strategy}")
             best_move = max(strategy, key=strategy.get) if strategy else None
         else:
