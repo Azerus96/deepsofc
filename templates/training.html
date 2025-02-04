@@ -694,6 +694,7 @@
                 rank: card.dataset.rank,
                 suit: card.dataset.suit
             }));
+          console.log("Selected cards from DOM:", selectedCards); // added log
 
             const board = {
                 top: Array.from(document.querySelectorAll('#top-row .card')).map(card => ({
@@ -725,9 +726,11 @@
         function distributeCards() {
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
+            console.log("Current game state:", gameState); // added log
 
-                // Correctly check if cards have been placed on the board
+            // Correctly check if cards have been placed on the board
             const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
+          console.log("Cards placed on the board:", cardsPlaced); // added log
 
             if (numCards === 0 && !cardsPlaced) {
                 alert('Сначала добавьте карты!');
@@ -736,6 +739,7 @@
 
             // Only call the AI if cards have been placed
             if (cardsPlaced) {
+              console.log("Calling AI to distribute cards"); // added log
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
                     fantasyMode: document.getElementById('fantasyMode').checked,
@@ -759,6 +763,7 @@
                     return response.json();
                 })
                 .then(data => {
+                    console.log("AI move response:", data); // added log
                     if (data.error) {
                         alert(data.error);
                         return;
@@ -819,6 +824,7 @@
                 });
             } else {
                 // If no cards are placed, just save the game state
+              console.log("No cards placed, saving game state"); // added log
                 saveGameStateToSession();
             }
         }
@@ -892,6 +898,8 @@
                 stopThreshold: document.getElementById('stopThreshold').value,
                 aiType: document.getElementById('aiType').value
             };
+
+            console.log("Saving game state to session:", { ...gameState, ai_settings: aiSettings }); // added log
 
             fetch('/update_state', {
                 method: 'POST',
