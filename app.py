@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify, session, request
 import os
 import ai_engine
-from ai_engine import CFRAgent, RandomAgent
+from ai_engine import CFRAgent, RandomAgent, Card
 import utils
 import github_utils
 import time
@@ -18,6 +18,7 @@ random_agent = RandomAgent()
 # Function to initialize the AI agent with settings
 def initialize_ai_agent(ai_settings):
     global cfr_agent
+    print(f"Initializing AI agent with settings: {ai_settings}")
     iterations = int(ai_settings.get('iterations', 1000))
     stop_threshold = float(ai_settings.get('stopThreshold', 0.001))
     cfr_agent = ai_engine.CFRAgent(iterations=iterations, stop_threshold=stop_threshold)
@@ -40,11 +41,11 @@ def home():
 
 @app.route('/training')
 def training():
-    # Initialize game state if it doesn't exist
+    # Initialize game state if it doesn't exist or reset if needed
     if 'game_state' not in session:
         session['game_state'] = {
             'selected_cards': [],
-            'board': {'top': [None] * 3, 'middle': [None] * 5, 'bottom': [None] * 5},
+            'board': {'top': [], 'middle': [], 'bottom': []},
             'discarded_cards': [],
             'ai_settings': {
                 'fantasyType': 'normal',
@@ -61,6 +62,7 @@ def training():
         initialize_ai_agent(session['game_state']['ai_settings'])
         session['previous_ai_settings'] = session['game_state']['ai_settings'].copy()
 
+    print(f"Current game state in session: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
 
 @app.route('/update_state', methods=['POST'])
@@ -68,19 +70,38 @@ def update_state():
     if not request.is_json:
         return jsonify({'error': 'Content type must be application/json'}), 400
 
-    game_state = request.get_json()
+    try:
+        game_state = request.get_json()
+        print(f"Received game state update: {game_state}")
 
-    if not isinstance(game_state, dict):
-        return jsonify({'error': 'Invalid game state format'}), 400
+        if not isinstance(game_state, dict):
+            return jsonify({'error': 'Invalid game state format'}), 400
 
-    session['game_state'] = game_state
-    session.modified = True
+        # Merge the incoming data with the existing session data
+        if 'game_state' not in session:
+            session['game_state'] = game_state
+        else:
+            for key, value in game_state.items():
+                if key in session['game_state'] and isinstance(session['game_state'][key], list):
+                    session['game_state'][key].extend(value)
+                elif key in session['game_state'] and isinstance(session['game_state'][key], dict):
+                    session['game_state'][key].update(value)
+                else:
+                    session['game_state'][key] = value
 
-    if game_state['ai_settings'] != session.get('previous_ai_settings'):
-        initialize_ai_agent(game_state['ai_settings'])
-        session['previous_ai_settings'] = game_state['ai_settings'].copy()
+        session.modified = True
 
-    return jsonify({'status': 'success'})
+        # Reinitialize AI agent if settings have changed
+        if game_state['ai_settings'] != session.get('previous_ai_settings'):
+            initialize_ai_agent(game_state['ai_settings'])
+            session['previous_ai_settings'] = game_state['ai_settings'].copy()
+
+        print(f"Updated game state in session: {session['game_state']}")
+        return jsonify({'status': 'success'})
+
+    except Exception as e:
+        print(f"Error in update_state: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
@@ -88,18 +109,21 @@ def ai_move():
     global random_agent
 
     game_state_data = request.get_json()
+    print(f"Received game state data for AI move: {game_state_data}")
+
     num_cards = len(game_state_data.get('selected_cards', []))
     ai_settings = game_state_data.get('ai_settings', {})
-    ai_type = ai_settings.get('aiType', 'mccfr')  # Default to MCCFR
+    ai_type = ai_settings.get('aiType', 'mccfr')
 
     try:
-        selected_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data['selected_cards']]
-        discarded_cards = [ai_engine.Card(card['rank'], card['suit']) for card in game_state_data.get('discarded_cards', [])]
+        # Convert card dictionaries to Card objects
+        selected_cards = [Card.from_dict(card) for card in game_state_data['selected_cards']]
+        discarded_cards = [Card.from_dict(card) for card in game_state_data.get('discarded_cards', [])]
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
             for card_data in game_state_data['board'].get(line, []):
                 if card_data:
-                    board.place_card(line, ai_engine.Card(card_data['rank'], card_data['suit']))
+                    board.place_card(line, Card.from_dict(card_data))
 
         game_state = ai_engine.GameState(
             selected_cards=selected_cards,
@@ -126,16 +150,9 @@ def ai_move():
 
             return jsonify({'message': 'Game over', 'payoff': payoff}), 200
 
-    except (KeyError, TypeError) as e:
+    except (KeyError, TypeError, ValueError) as e:
+        print(f"Error in ai_move during game state creation: {e}")
         return jsonify({'error': f"Invalid game state data format: {e}"}), 400
-
-    game_state = ai_engine.GameState(
-        selected_cards=selected_cards,
-        board=board,
-        discarded_cards=discarded_cards,
-        ai_settings=ai_settings,
-        deck=ai_engine.Card.get_all_cards()
-    )
 
     timeout_event = Event()
     result = {'move': None}
@@ -143,6 +160,7 @@ def ai_move():
     # Choose the appropriate agent based on ai_type
     if ai_type == 'mccfr':
         if cfr_agent is None:
+            print("Error: MCCFR agent not initialized")
             return jsonify({'error': 'MCCFR agent not initialized'}), 500
         ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
     else:  # ai_type == 'random'
@@ -160,8 +178,10 @@ def ai_move():
 
     move = result['move']
     if 'error' in move:
+        print(f"AI move error: {move['error']}")
         return jsonify({'error': move['error']}), 500
 
+    # Serialize the move using Card.to_dict()
     def serialize_card(card):
         return card.to_dict() if card else None
 
@@ -206,6 +226,7 @@ def ai_move():
         except Exception as e:
             print(f"Error saving AI progress: {e}")
 
+    print(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
     return jsonify({
         'move': serialized_move,
         'royalties': royalties,
