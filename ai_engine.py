@@ -40,7 +40,6 @@ class Card:
     def get_all_cards():
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
-
 class Hand:
     def __init__(self, cards=None):
         self.cards = cards if cards is not None else []
@@ -169,7 +168,8 @@ class GameState:
                 if num_cards == 5:
                     # Generate all possible permutations for placing 5 cards
                     for p in itertools.permutations(self.selected_cards.cards):
-                        if self.evaluate_hand([p[0]])[0] != "Three of a Kind":
+                        # Corrected card placement logic
+                        if self.evaluate_hand([p[0]])[0] != 7:  # Ensure no set on the top line
                             actions.append({
                                 'top': [p[0]],
                                 'middle': [p[1], p[2]],
@@ -645,9 +645,7 @@ class CFRAgent:
 
             next_state = game_state.apply_action(a)
             if player == 0:
-                util[a] = -self.cfr(next_state, p0 * strategy[a], p1, timeout_event, result)
-            else:
-                util[a] = -self.cfr(next_state, p0, p1 * strategy[a], timeout_event, result)
+                                util[a] = -self.cfr(next_state, p0, p1 * strategy[a], timeout_event, result)
             node_util += strategy[a] * util[a]
 
         if player == 0:
