@@ -41,8 +41,10 @@ def home():
 
 @app.route('/training')
 def training():
+    print("Entering /training route")
     # Initialize game state if it doesn't exist or reset if needed
     if 'game_state' not in session:
+        print("Initializing new game state in session")
         session['game_state'] = {
             'selected_cards': [],
             'board': {'top': [], 'middle': [], 'bottom': []},
@@ -67,7 +69,9 @@ def training():
 
 @app.route('/update_state', methods=['POST'])
 def update_state():
+    print("Entering /update_state route")
     if not request.is_json:
+        print("Error: Request is not JSON")
         return jsonify({'error': 'Content type must be application/json'}), 400
 
     try:
@@ -75,24 +79,46 @@ def update_state():
         print(f"Received game state update: {game_state}")
 
         if not isinstance(game_state, dict):
+            print("Error: Invalid game state format (not a dictionary)")
             return jsonify({'error': 'Invalid game state format'}), 400
 
         # Merge the incoming data with the existing session data
         if 'game_state' not in session:
+            print("Initializing game state in session from request")
             session['game_state'] = game_state
         else:
+            print("Merging received game state with session data")
             for key, value in game_state.items():
-                if key in session['game_state'] and isinstance(session['game_state'][key], list):
+                if key == 'selected_cards':
+                    print("Updating selected_cards")
+                    # Ensure that selected_cards are properly merged
+                    if 'selected_cards' not in session['game_state']:
+                        session['game_state']['selected_cards'] = []
+                    
+                    # Convert dictionaries to Card objects
+                    session['game_state']['selected_cards'] = [Card.from_dict(card_dict) for card_dict in value if isinstance(card_dict, dict)]
+                    print(f"Updated selected_cards: {session['game_state']['selected_cards']}")
+                elif key == 'board':
+                    print("Updating board")
+                    for line in ['top', 'middle', 'bottom']:
+                        if line in value:
+                            session['game_state']['board'][line] = [Card.from_dict(card_dict) for card_dict in value[line] if isinstance(card_dict, dict)]
+                    print(f"Updated board: {session['game_state']['board']}")
+                elif key in session['game_state'] and isinstance(session['game_state'][key], list):
+                    print(f"Extending list for key: {key}")
                     session['game_state'][key].extend(value)
                 elif key in session['game_state'] and isinstance(session['game_state'][key], dict):
+                    print(f"Updating dictionary for key: {key}")
                     session['game_state'][key].update(value)
                 else:
+                    print(f"Setting new value for key: {key}")
                     session['game_state'][key] = value
 
         session.modified = True
 
         # Reinitialize AI agent if settings have changed
         if game_state['ai_settings'] != session.get('previous_ai_settings'):
+            print("AI settings changed, reinitializing AI agent")
             initialize_ai_agent(game_state['ai_settings'])
             session['previous_ai_settings'] = game_state['ai_settings'].copy()
 
@@ -120,16 +146,19 @@ def ai_move():
         selected_cards_data = game_state_data.get('selected_cards')
         if selected_cards_data is None:
             selected_cards = []
+            print("selected_cards is None, initializing to empty list")
         else:
             selected_cards = [Card.from_dict(card) for card in selected_cards_data]
         print(f"Processed selected_cards: {selected_cards}")
 
         discarded_cards = [Card.from_dict(card) for card in game_state_data.get('discarded_cards', [])]
+        print(f"Processed discarded_cards: {discarded_cards}")
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
             for card_data in game_state_data['board'].get(line, []):
                 if card_data:
                     board.place_card(line, Card.from_dict(card_data))
+        print(f"Processed board: {board}")
 
         game_state = ai_engine.GameState(
             selected_cards=selected_cards,
@@ -138,9 +167,11 @@ def ai_move():
             ai_settings=ai_settings,
             deck=ai_engine.Card.get_all_cards()
         )
+        print(f"Created game state: {game_state}")
 
         # Check if the board is full before the AI makes a move
         if game_state.is_terminal():
+            print("Game is in terminal state")
             # Calculate royalties and update AI progress
             payoff = game_state.get_payoff()
             print(f"Game over. Payoff: {payoff}")
@@ -196,6 +227,7 @@ def ai_move():
                 for key, cards in move.items()}
 
     serialized_move = serialize_move(move)
+    print(f"Serialized move: {serialized_move}")
 
     # Calculate royalties
     royalties = game_state.calculate_royalties()
@@ -203,11 +235,13 @@ def ai_move():
 
     # Update game state in session (correctly handling occupied slots)
     if move:
+        print("Updating game state in session with AI move")
         for line in ['top', 'middle', 'bottom']:
             placed_cards = move.get(line, [])
             slot_index = 0  # Start checking from the first slot in each line
             for card in placed_cards:
                 serialized_card = serialize_card(card)
+                print(f"Placing card: {serialized_card} on line: {line} at index: {slot_index}")
 
                 # Find the next available slot in the line
                 while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
