@@ -362,16 +362,6 @@
         }
     </style>
 </head>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Training Mode</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-        /* ... (CSS styles - no changes needed) ... */
-    </style>
-</head>
 <body>
     <button class="menu-toggle" onclick="toggleMenu()">
         <span class="material-icons">menu</span>
@@ -795,6 +785,7 @@
                         });
                     }
 
+                    // Очищаем область комбинации и сбрасываем слоты
                     const combinationArea = document.getElementById('combination-area');
                     combinationArea.innerHTML = '';
                     for (let i = 0; i < 17; i++) {
@@ -920,7 +911,7 @@
         function saveSettings() {
             const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
-                fantasyMode: document.getElementById('fantasyMode').checked,
+                                fantasyMode: document.getElementById('fantasyMode').checked,
                 aiTime: document.getElementById('aiTime').value,
                 iterations: document.getElementById('iterations').value,
                 stopThreshold: document.getElementById('stopThreshold').value,
@@ -1032,6 +1023,3 @@
     </script>
 </body>
 </html>
-
-                                            iterations: document.getElementById('iterations').value,
-                
