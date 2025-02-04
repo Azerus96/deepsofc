@@ -727,19 +727,20 @@
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
             console.log("Current game state:", gameState); // added log
+            console.log("Number of selected cards:", numCards);
 
             // Correctly check if cards have been placed on the board
             const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
-          console.log("Cards placed on the board:", cardsPlaced); // added log
+            console.log("Cards placed on the board:", cardsPlaced); // added log
 
             if (numCards === 0 && !cardsPlaced) {
                 alert('Сначала добавьте карты!');
                 return;
             }
 
-            // Only call the AI if cards have been placed
-            if (cardsPlaced) {
-              console.log("Calling AI to distribute cards"); // added log
+            // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
+            if (cardsPlaced || numCards > 0) {
+                console.log("Calling AI to distribute cards"); // added log
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
                     fantasyMode: document.getElementById('fantasyMode').checked,
@@ -823,8 +824,8 @@
                     alert('Произошла ошибка при получении хода ИИ.');
                 });
             } else {
-                // If no cards are placed, just save the game state
-              console.log("No cards placed, saving game state"); // added log
+                // This else block is now likely unreachable because of the initial numCards === 0 check
+                console.log("No cards to distribute, saving game state"); // added log
                 saveGameStateToSession();
             }
         }
