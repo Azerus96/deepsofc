@@ -852,7 +852,7 @@
                         const slots = row.querySelectorAll('.card-slot');
                         let slotFound = false;
                         for (let i = 0; i < slots.length; i++) {
-                            if (!slots[i].hasChildNodes()) {
+                            if (!slots[i].querySelector('.card')) {
                                 slots[i].appendChild(card);
                                 unavailableCards.add(`${cardData.rank}${cardData.suit}`);
                                 slots[i].classList.add('taken');
