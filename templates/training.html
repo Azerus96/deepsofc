@@ -362,16 +362,6 @@
         }
     </style>
 </head>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Training Mode</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <style>
-        /* ... (CSS styles - no changes needed) ... */
-    </style>
-</head>
 <body>
     <button class="menu-toggle" onclick="toggleMenu()">
         <span class="material-icons">menu</span>
@@ -767,6 +757,8 @@
                     aiType: document.getElementById('aiType').value
                 };
 
+                console.log("Sending data to /ai_move:", JSON.stringify({ ...gameState, ai_settings: aiSettings }));
+
                 fetch('/ai_move', {
                     method: 'POST',
                     headers: {
@@ -848,7 +840,7 @@
         }
 
         function placeCardsOnBoard(data) {
-            console.log("Placing cards on board:", data); // added log
+            console.log("Placing cards on board:", data);
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
                 if (data[line]) {
@@ -880,7 +872,7 @@
         }
 
         function displayRoyalties(royalties) {
-            console.log("Displaying royalties:", royalties); // added log
+            console.log("Displaying royalties:", royalties);
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
                 const royaltyValue = royalties[line];
@@ -904,7 +896,7 @@
         }
 
         function displayTotalRoyalty(totalRoyalty) {
-            console.log("Displaying total royalty:", totalRoyalty); // added log
+            console.log("Displaying total royalty:", totalRoyalty);
             const totalRoyaltyElement = document.getElementById('total-royalty');
             totalRoyaltyElement.textContent = `Total Royalty: ${totalRoyalty}`;
         }
@@ -947,7 +939,7 @@
                 aiType: document.getElementById('aiType').value
             };
 
-            console.log("Saving settings:", aiSettings); // added log
+            console.log("Saving settings:", aiSettings);
 
             fetch('/update_state', {
                 method: 'POST',
@@ -966,7 +958,7 @@
                 return response.json();
             })
             .then(data => {
-                console.log("Response from saving settings:", data); // added log
+                console.log("Response from saving settings:", data);
                 if (data.status === 'success') {
                     alert('Настройки сохранены!');
                     toggleMenu();
@@ -981,7 +973,7 @@
         }
 
         function removeCardFromUnavailable(cardKey) {
-            console.log("Removing card from unavailable:", cardKey); // added log
+            console.log("Removing card from unavailable:", cardKey);
             if (unavailableCards.has(cardKey)) {
                 unavailableCards.delete(cardKey);
                 const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
@@ -990,7 +982,7 @@
         }
 
         function updateSelectorItemAvailability(rank, suit) {
-            console.log("Updating selector item availability for:", rank, suit); // added log
+            console.log("Updating selector item availability for:", rank, suit);
             let rankCount = document.querySelectorAll(`.card[data-rank="${rank}"]`).length;
             let suitCount = document.querySelectorAll(`.card[data-suit="${suit}"]`).length;
 
