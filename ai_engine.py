@@ -40,6 +40,14 @@ class Card:
     def get_all_cards(self):
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
+
+    def to_dict(self):
+        return {'rank': self.rank, 'suit': self.suit}
+
+    @staticmethod
+    def from_dict(card_dict):
+        return Card(card_dict['rank'], card_dict['suit'])
+
 class Hand:
     def __init__(self, cards=None):
         self.cards = cards if cards is not None else []
