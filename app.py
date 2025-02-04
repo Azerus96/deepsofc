@@ -116,8 +116,14 @@ def ai_move():
     ai_type = ai_settings.get('aiType', 'mccfr')
 
     try:
-        # Convert card dictionaries to Card objects
-        selected_cards = [Card.from_dict(card) for card in game_state_data['selected_cards']]
+        # Ensure selected_cards is a list of Card objects
+        selected_cards_data = game_state_data.get('selected_cards')
+        if selected_cards_data is None:
+            selected_cards = []
+        else:
+            selected_cards = [Card.from_dict(card) for card in selected_cards_data]
+        print(f"Processed selected_cards: {selected_cards}")
+
         discarded_cards = [Card.from_dict(card) for card in game_state_data.get('discarded_cards', [])]
         board = ai_engine.Board()
         for line in ['top', 'middle', 'bottom']:
