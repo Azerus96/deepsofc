@@ -37,7 +37,7 @@ class Card:
         return Card(card_dict['rank'], card_dict['suit'])
 
     @staticmethod
-    def get_all_cards(self):
+    def get_all_cards():
         return [Card(rank, suit) for rank in Card.RANKS for suit in Card.SUITS]
 
 class Hand:
@@ -435,9 +435,9 @@ class GameState:
         if len(cards) != 3:
             return 0
         ranks = [card.rank for card in cards]
-        for rank in Card.RANKS[::-1]:  # Iterate in reverse to find the highest pair first
-            if ranks.count(rank) == 2:
-                return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0
+        for rank in Card.RANKS[::-1]:  # Iterate in reverse to find
+        if ranks.count(rank) == 2:
+            return 1 + Card.RANKS.index(rank) - Card.RANKS.index('6') if rank >= '6' else 0
 
     def get_high_card_bonus(self, cards):
         """Calculates the bonus for a high card in the top line."""
