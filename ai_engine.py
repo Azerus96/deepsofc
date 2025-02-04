@@ -501,7 +501,7 @@ class GameState:
             if self.is_full_house(cards):
                 rank = [card.rank for card in cards if [card.rank for card in cards].count(card.rank) == 3][0]
                 return 4, 6 + Card.RANKS.index(rank) / 100
-                        if self.is_flush(cards):
+            if self.is_flush(cards):
                 score = 4 + sum(Card.RANKS.index(card.rank) for card in cards) / 1000  # Adjusted score for Flush
                 return 5, score
             if self.is_straight(cards):
