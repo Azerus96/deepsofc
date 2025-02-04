@@ -10,7 +10,7 @@ from threading import Thread, Event
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)  # Set the logging level to INFO
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
