@@ -840,36 +840,35 @@
         }
 
         function placeCardsOnBoard(data) {
-            console.log("Placing cards on board:", data);
-            const lines = ['top', 'middle', 'bottom'];
-            lines.forEach(line => {
-                if (data[line]) {
-                    let slotIndex = 0; // Index for available slots
-                    data[line].forEach(cardData => {
-                        const card = createCard(cardData);
+        function placeCardsOnBoard(data) {
+    console.log("Placing cards on board:", data);
+    const lines = ['top', 'middle', 'bottom'];
+    lines.forEach(line => {
+        const row = document.getElementById(`${line}-row`);
+        if (data[line]) {
+            data[line].forEach((cardData, index) => {
+                const card = createCard(cardData);
 
-                        // Find the next available slot in the current line
-                        const availableSlot = document.querySelectorAll(`#${line}-row .card-slot`)[slotIndex];
+                // Find the next available slot in the current line
+                const slots = row.querySelectorAll('.card-slot');
+                let slotFound = false;
+                for (let i = 0; i < slots.length; i++) {
+                    if (!slots[i].hasChildNodes()) {
+                        slots[i].appendChild(card);
+                        unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                        slots[i].classList.add('taken');
+                        slotFound = true;
+                        break;
+                    }
+                }
 
-                        // Place the card if the slot is available
-                        if (availableSlot && !availableSlot.querySelector('.card')) {
-                            availableSlot.appendChild(card);
-                            unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                            availableSlot.classList.add('taken');
-                            slotIndex++; // Move to the next slot
-                        } else {
-                            // If the slot is not available, find the next empty one
-                            const emptySlot = Array.from(document.querySelectorAll(`#${line}-row .card-slot`)).find(slot => !slot.querySelector('.card'));
-                            if (emptySlot) {
-                                emptySlot.appendChild(card);
-                                unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                                emptySlot.classList.add('taken');
-                            }
-                        }
-                    });
+                if (!slotFound) {
+                    console.error(`No available slot found for card ${cardData.rank}${cardData.suit} on line ${line}`);
                 }
             });
         }
+    });
+}
 
         function displayRoyalties(royalties) {
             console.log("Displaying royalties:", royalties);
