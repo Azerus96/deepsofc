@@ -171,6 +171,10 @@ def ai_move():
 
     serialized_move = serialize_move(move)
 
+    # Calculate royalties
+    royalties = game_state.calculate_royalties()
+    total_royalty = sum(royalties.values())
+
     # Update game state in session (correctly handling occupied slots)
     if move:
         for line in ['top', 'middle', 'bottom']:
@@ -202,7 +206,11 @@ def ai_move():
         except Exception as e:
             print(f"Error saving AI progress: {e}")
 
-    return jsonify(serialized_move)
+    return jsonify({
+        'move': serialized_move,
+        'royalties': royalties,
+        'total_royalty': total_royalty
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
