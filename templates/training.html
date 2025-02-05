@@ -5,9 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        /* ... (your existing CSS) ... */
-        /* Style remains unchanged */
-         body {
+        body {
             margin: 0;
             padding: 20px;
             font-family: Arial, sans-serif;
@@ -447,7 +445,7 @@
         <div class="selector-row">
             <button class="selector-item action-button" onclick="distributeCards()">+</button>
             <div class="selector-item" data-suit="♥">♥</div>
-                        <div class="selector-item" data-suit="♦">♦</div>
+            <div class="selector-item" data-suit="♦">♦</div>
             <div class="selector-item" data-suit="♣">♣</div>
             <div class="selector-item" data-suit="♠">♠</div>
             <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
@@ -508,8 +506,7 @@
             card.textContent = `${cardData.rank}${cardData.suit}`;
 
             if (cardData.suit === '♥' || cardData.suit === '♦') {
-                card.style.color = '#e44145';
-            }
+                card.style.color = '#e44145';            }
 
             card.addEventListener('dblclick', () => {
                 const cardKey = `${cardData.rank}${cardData.suit}`;
@@ -839,39 +836,36 @@ function distributeCards() {
         }
 
 function placeCardsOnBoard(moveData) {
-    console.log("placeCardsOnBoard called with moveData:", moveData);
-    const lines = ['top', 'middle', 'bottom'];
+  console.log("placeCardsOnBoard called with moveData:", moveData);
+  const lines = ['top', 'middle', 'bottom'];
+  const nextSlots = moveData.next_available_slots; // Get slot indices
 
-    lines.forEach(line => {
-        const row = document.getElementById(`${line}-row`);
-        const slots = row.querySelectorAll('.card-slot');
-        // Find the FIRST available slot, starting from where we left off
-        let slotIndex = 0;
-        while (slotIndex < slots.length && slots[slotIndex].querySelector('.card')) {
-            slotIndex++;
-        }
+  lines.forEach(line => {
+    const row = document.getElementById(`${line}-row`);
+    let slotIndex = nextSlots[line]; // Use the provided index
 
-        if (moveData && moveData[line]) {
-            moveData[line].forEach(cardData => {
-                if (!cardData) return; // Skip if cardData is null or undefined
+    if (moveData && moveData[line]) {
+      moveData[line].forEach(cardData => {
+        if (!cardData) return;
 
-                // Place the card in the next available slot
-                if (slotIndex < slots.length) {
-                    const card = createCard(cardData);
-                    slots[slotIndex].appendChild(card);
-                    unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                    slots[slotIndex].classList.add('taken');
-                    console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
-                    // IMPORTANT: Increment slotIndex *AFTER* placing EACH card.
-                    slotIndex++;
-                } else {
-                    console.error(`No available slot found in ${line}-row for card ${cardData.rank}${cardData.suit}`);
-                }
-            });
+        // Get the slot element directly using getElementsByClassName and the index
+        const slot = row.getElementsByClassName('card-slot')[slotIndex];
+
+        if (slot) {
+          const card = createCard(cardData);
+          slot.appendChild(card);
+          unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+          slot.classList.add('taken');
+          console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
+          slotIndex++; // Increment for the NEXT card on this line
         } else {
-            console.warn(`No move data for line ${line} or moveData is undefined.`);
+          console.error(`No slot found in ${line}-row for card ${cardData.rank}${cardData.suit} at index ${slotIndex}`);
         }
-    });
+      });
+    } else {
+      console.warn(`No move data or slot data for line ${line}.`);
+    }
+  });
 }
 
         function displayRoyalties(royalties) {
