@@ -86,45 +86,40 @@ def update_state():
             app.logger.error("Error: Invalid game state format (not a dictionary)")
             return jsonify({'error': 'Invalid game state format'}), 400
 
-        # Merge the incoming data with the existing session data
+        # Initialize or update the game state in the session
         if 'game_state' not in session:
-            app.logger.info("Initializing game state in session from request")
-            session['game_state'] = game_state
-        else:
-            app.logger.info("Merging received game state with session data")
-            for key, value in game_state.items():
-                if key == 'selected_cards':
-                    app.logger.info("Updating selected_cards")
-                    # Ensure that selected_cards are properly merged
-                    if 'selected_cards' not in session['game_state']:
-                        session['game_state']['selected_cards'] = []
-                    
-                    # Convert dictionaries to Card objects
-                    session['game_state']['selected_cards'] = [Card.from_dict(card_dict) for card_dict in value if isinstance(card_dict, dict)]
-                    app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
-                elif key == 'board':
-                    app.logger.info("Updating board")
-                    for line in ['top', 'middle', 'bottom']:
-                        if line in value:
-                            session['game_state']['board'][line] = [Card.from_dict(card_dict) for card_dict in value[line] if isinstance(card_dict, dict)]
-                    app.logger.info(f"Updated board: {session['game_state']['board']}")
-                elif key in session['game_state'] and isinstance(session['game_state'][key], list):
-                    app.logger.info(f"Extending list for key: {key}")
-                    session['game_state'][key].extend(value)
-                elif key in session['game_state'] and isinstance(session['game_state'][key], dict):
-                    app.logger.info(f"Updating dictionary for key: {key}")
-                    session['game_state'][key].update(value)
-                else:
-                    app.logger.info(f"Setting new value for key: {key}")
-                    session['game_state'][key] = value
+            session['game_state'] = {}
+
+        # Update selected_cards (replace, don't append)
+        if 'selected_cards' in game_state:
+            session['game_state']['selected_cards'] = [
+                Card.from_dict(card_dict) for card_dict in game_state['selected_cards']
+                if isinstance(card_dict, dict)
+            ]
+            app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
+
+        # Update board (correctly handle Card objects)
+        if 'board' in game_state:
+            for line in ['top', 'middle', 'bottom']:
+                if line in game_state['board']:
+                    session['game_state']['board'][line] = [
+                        Card.from_dict(card_dict) for card_dict in game_state['board'][line]
+                        if isinstance(card_dict, dict)
+                    ]
+            app.logger.info(f"Updated board: {session['game_state']['board']}")
+
+        # Update other keys (discarded_cards, ai_settings, etc.)
+        for key in ['discarded_cards', 'ai_settings']:
+            if key in game_state:
+                session['game_state'][key] = game_state[key]
 
         session.modified = True
 
         # Reinitialize AI agent if settings have changed
-        if game_state['ai_settings'] != session.get('previous_ai_settings'):
+        if game_state.get('ai_settings') != session.get('previous_ai_settings'):
             app.logger.info("AI settings changed, reinitializing AI agent")
             initialize_ai_agent(game_state['ai_settings'])
-            session['previous_ai_settings'] = game_state['ai_settings'].copy()
+            session['previous_ai_settings'] = game_state.get('ai_settings', {}).copy()
 
         app.logger.info(f"Updated game state in session: {session['game_state']}")
         return jsonify({'status': 'success'})
@@ -218,9 +213,10 @@ def ai_move():
         return jsonify({'error': 'AI move timed out'}), 504
 
     move = result['move']
-    if 'error' in move:
-        app.logger.error(f"AI move error: {move['error']}")
-        return jsonify({'error': move['error']}), 500
+    if move is None or 'error' in move:
+        app.logger.error(f"AI move error: {move.get('error', 'Unknown error')}")
+        return jsonify({'error': move.get('error', 'Unknown error')}), 500
+
 
     # Serialize the move using Card.to_dict()
     def serialize_card(card):
@@ -241,20 +237,23 @@ def ai_move():
     if move:
         app.logger.info("Updating game state in session with AI move")
         for line in ['top', 'middle', 'bottom']:
-            placed_cards = move.get(line, [])
-            slot_index = 0  # Start checking from the first slot in each line
-            for card in placed_cards:
-                serialized_card = serialize_card(card)
-                app.logger.info(f"Placing card: {serialized_card} on line: {line} at index: {slot_index}")
+            if line in move:  # Check if the line exists in the move
+                placed_cards = move.get(line, [])
+                slot_index = 0  # Start checking from the first slot in each line
+                for card in placed_cards:
+                    serialized_card = serialize_card(card)
+                    app.logger.info(f"Placing card: {serialized_card} on line: {line} at index: {slot_index}")
 
-                # Find the next available slot in the line
-                while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
-                    slot_index += 1
+                    # Find the next available slot in the line
+                    while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
+                        slot_index += 1
 
-                # Place the card if an available slot is found
-                if slot_index < len(session['game_state']['board'][line]):
-                    session['game_state']['board'][line][slot_index] = serialized_card
-                    slot_index += 1  # Move to the next slot for the next card
+                    # Place the card if an available slot is found
+                    if slot_index < len(session['game_state']['board'][line]):
+                        session['game_state']['board'][line][slot_index] = serialized_card
+                        # slot_index += 1  # Don't increment here, place all cards in order
+                    else:
+                        app.logger.warning(f"No available slot found for card {serialized_card} on line {line}")
 
         discarded_card = move.get('discarded')
         if discarded_card:
