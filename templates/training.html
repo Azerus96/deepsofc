@@ -506,7 +506,8 @@
             card.textContent = `${cardData.rank}${cardData.suit}`;
 
             if (cardData.suit === '♥' || cardData.suit === '♦') {
-                card.style.color = '#e44145';            }
+                card.style.color = '#e44145';
+            }
 
             card.addEventListener('dblclick', () => {
                 const cardKey = `${cardData.rank}${cardData.suit}`;
@@ -844,7 +845,7 @@ function placeCardsOnBoard(moveData) {
     const row = document.getElementById(`${line}-row`);
     let slotIndex = nextSlots[line]; // Use the provided index
 
-    if (moveData && moveData[line]) {
+    if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
       moveData[line].forEach(cardData => {
         if (!cardData) return;
 
