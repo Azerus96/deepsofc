@@ -110,14 +110,14 @@ def update_state():
         if 'game_state' not in session:
             session['game_state'] = {}
 
-        # Update selected_cards (replace, don't append, and use to_dict)
+        # Update selected_cards (replace, don't append, and KEEP AS DICTIONARIES)
         if 'selected_cards' in game_state:
             session['game_state']['selected_cards'] = [
                 card_dict for card_dict in game_state['selected_cards']  # Keep as dictionaries
             ]
             app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
 
-        # Update board (correctly handle Card objects, and use to_dict)
+        # Update board (correctly handle Card objects, and KEEP AS DICTIONARIES)
         if 'board' in game_state:
             for line in ['top', 'middle', 'bottom']:
                 if line in game_state['board']:
