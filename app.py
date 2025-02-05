@@ -293,7 +293,7 @@ def ai_move():
             if line in move:
                 placed_cards = move.get(line, [])
                 # Use the NEXT AVAILABLE SLOT, and update it
-                slot_index = next_available_slots[line]
+                slot_index = next_available_slots[line]  # Get from pre-calculated slots
                 for card in placed_cards:
                     serialized_card = serialize_card(card)
                     if slot_index < len(session['game_state']['board'][line]):
