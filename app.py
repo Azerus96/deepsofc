@@ -223,6 +223,15 @@ def ai_move():
             }), 200
         # --- END OF END OF GAME HANDLING ---
 
+        # --- Find the next available slots BEFORE calling the AI ---
+        next_available_slots = {}
+        for line in ['top', 'middle', 'bottom']:
+            next_available_slots[line] = 0
+            while (next_available_slots[line] < len(session['game_state']['board'][line]) and
+                   session['game_state']['board'][line][next_available_slots[line]] is not None):
+                next_available_slots[line] += 1
+        app.logger.info(f"Next available slots: {next_available_slots}")
+        # --------------------------------------------------------
 
     except (KeyError, TypeError, ValueError) as e:
         app.logger.error(f"Error in ai_move during game state creation: {e}")
@@ -257,14 +266,19 @@ def ai_move():
 
 
     # Serialize the move using Card.to_dict()
+    #  AND INCLUDE next_available_slots
     def serialize_card(card):
         return card.to_dict() if card else None
 
-    def serialize_move(move):
-        return {key: [serialize_card(card) for card in cards] if isinstance(cards, list) else serialize_card(cards)
-                for key, cards in move.items()}
+    def serialize_move(move, next_slots):
+        serialized = {
+            key: [serialize_card(card) for card in cards] if isinstance(cards, list) else serialize_card(cards)
+            for key, cards in move.items()
+        }
+        serialized['next_available_slots'] = next_slots  # Add the slots
+        return serialized
 
-    serialized_move = serialize_move(move)
+    serialized_move = serialize_move(move, next_available_slots) # Pass next_available_slots
     app.logger.info(f"Serialized move: {serialized_move}")
 
     # Calculate royalties (even if not terminal, for display)
@@ -278,16 +292,16 @@ def ai_move():
         for line in ['top', 'middle', 'bottom']:
             if line in move:
                 placed_cards = move.get(line, [])
-                slot_index = 0
+                # Use the NEXT AVAILABLE SLOT, and update it
+                slot_index = next_available_slots[line]
                 for card in placed_cards:
                     serialized_card = serialize_card(card)
-                    # Find the next available slot
-                    while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
-                        slot_index += 1
                     if slot_index < len(session['game_state']['board'][line]):
                         session['game_state']['board'][line][slot_index] = serialized_card
+                        slot_index += 1 # Increment for the NEXT card
                     else:
                         app.logger.warning(f"No slot for {serialized_card} on {line}")
+                next_available_slots[line] = slot_index # Update for next time
 
 
         discarded_card = move.get('discarded')
