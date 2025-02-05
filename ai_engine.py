@@ -448,7 +448,7 @@ class GameState:
             high_card = max(ranks, key=Card.RANKS.index)
             return 1 if high_card == 'A' else 0
 
-    def get_fantasy_bonus(self):
+        def get_fantasy_bonus(self):
         """Calculates the bonus for fantasy mode."""
         bonus = 0
         top_rank, _ = self.evaluate_hand(self.board.top)
@@ -917,34 +917,46 @@ class CFRAgent:
         score = 0
 
         # 1. Hand strength evaluation (more granular)
-        score += self.evaluate_line_strength(state.board.top, 'top')
-        score += self.evaluate_line_strength(state.board.middle, 'middle')
-        score += self.evaluate_line_strength(state.board.bottom, 'bottom')
+        score += self.evaluate_line_strength(state.board.top, 'top') * 3
+        score += self.evaluate_line_strength(state.board.middle, 'middle') * 2
+        score += self.evaluate_line_strength(state.board.bottom, 'bottom') * 1
 
         # 2. Potential for improvement
         available_cards = state.get_available_cards()
-        score += self.calculate_potential(state.board.top, 'top', state.board, available_cards) * 5
-        score += self.calculate_potential(state.board.middle, 'middle', state.board, available_cards) * 3
-        score += self.calculate_potential(state.board.bottom, 'bottom', state.board, available_cards) * 2
+        score += self.calculate_potential(state.board.top, 'top', state.board, available_cards) * 10
+        score += self.calculate_potential(state.board.middle, 'middle', state.board, available_cards) * 8
+        score += self.calculate_potential(state.board.bottom, 'bottom', state.board, available_cards) * 6
 
-        # 3. Favor placing higher cards on higher lines
-        score += sum(Card.RANKS.index(card.rank) for card in state.board.top) * 0.5
-        score += sum(Card.RANKS.index(card.rank) for card in state.board.middle) * 0.3
-        score += sum(Card.RANKS.index(card.rank) for card in state.board.bottom) * 0.2
+        # 3. Favor placing higher cards on higher lines (adjusted weights)
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.top) * 2
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.middle) * 1.5
+        score += sum(Card.RANKS.index(card.rank) for card in state.board.bottom) * 1
 
-        # 4. Fantasy mode bonus
-        if any(card.rank in ['Q', 'K', 'A'] for card in state.board.top):
-            score += state.get_fantasy_bonus()
 
-        # 5. Positional awareness (penalize hands close to being dead)
-        top_score = state.get_line_score('top', state.board.top)
-        middle_score = state.get_line_score('middle', state.board.middle)
-        bottom_score = state.get_line_score('bottom', state.board.bottom)
+        # 4. Fantasy mode bonus (check if already in fantasy)
+        if state.ai_settings.get('fantasyMode'):
+            # If already in fantasy, prioritize staying in fantasy
+            if state.is_fantasy_repeat():
+                score += 500  # Large bonus for staying in fantasy
+            else:
+                score += state.calculate_royalties() # Add the current royalties
+        else:
+            # If not in fantasy, give a bonus for potential fantasy entry
+            if any(card.rank in ['Q', 'K', 'A'] for card in state.board.top):
+                score += 100 # Bonus for potential fantasy
 
-        if middle_score > 0 and top_score > 0 and middle_score - top_score < 2:
-            score -= 5  # Penalty for middle hand being too close to top hand in strength
-        if bottom_score > 0 and middle_score > 0 and bottom_score - middle_score < 2:
-            score -= 5  # Penalty for bottom hand being too close to middle hand in strength
+        # 5. Positional awareness (penalize hands close to being dead - more precise)
+        top_rank, _ = state.evaluate_hand(state.board.top)
+        middle_rank, _ = state.evaluate_hand(state.board.middle)
+        bottom_rank, _ = state.evaluate_hand(state.board.bottom)
+
+        if middle_rank > 0 and top_rank > 0 and middle_rank <= top_rank:
+            score -= 50  # Penalty for middle hand being weaker or equal to top hand
+        if bottom_rank > 0 and middle_rank > 0 and bottom_rank <= middle_rank:
+            score -= 50  # Penalty for bottom hand being weaker or equal to middle hand
+
+        # 6.  Royalties (add directly to the score)
+        score += sum(state.calculate_royalties().values())
 
         return score
 
@@ -977,7 +989,7 @@ class RandomAgent:
             result['move'] = {'error': 'Нет доступных ходов'}
             print("No actions available, returning error.")
             return
-        
+
         best_move = random.choice(actions) if actions else None
         print(f"Selected move: {best_move}")
         result['move'] = best_move  # Correctly return the move
