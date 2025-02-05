@@ -159,7 +159,7 @@
 
         .card {
             width: calc(70px + 2vw);
-                        height: calc(100px + 2vw);
+            height: calc(100px + 2vw);
             min-width: 50px;
             min-height: 70px;
             border-radius: 8px;
@@ -294,7 +294,7 @@
             pointer-events: none;
         }
 
-        .royalty-animation {
+       .royalty-animation {
             position: absolute;
             right: -30px; /* Adjust as needed */
             top: 50%;
@@ -375,7 +375,7 @@
             <label for="fantasyType">Тип фантазии:</label>
             <select id="fantasyType">
                 <option value="normal">Обычная</option>
-                <option value="progressive">Прогрессивная</option>
+                                <option value="progressive">Прогрессивная</option>
             </select>
         </div>
         <div class="setting-group">
@@ -828,39 +828,41 @@
             }
         }
 
-        function placeCardsOnBoard(moveData) {
-            console.log("placeCardsOnBoard called with moveData:", moveData);
-            const lines = ['top', 'middle', 'bottom'];
+function placeCardsOnBoard(moveData) {
+    console.log("placeCardsOnBoard called with moveData:", moveData);
+    const lines = ['top', 'middle', 'bottom'];
 
-            lines.forEach(line => {
-                const row = document.getElementById(`${line}-row`);
-                const slots = row.querySelectorAll('.card-slot');
-                let slotIndex = 0; // Keep track of the current slot
+    lines.forEach(line => {
+        const row = document.getElementById(`${line}-row`);
+        const slots = row.querySelectorAll('.card-slot');
+        // Find the FIRST available slot, starting from where we left off
+        let slotIndex = 0;
+        while (slotIndex < slots.length && slots[slotIndex].querySelector('.card')) {
+            slotIndex++;
+        }
 
-                if (moveData && moveData[line]) {
-                    moveData[line].forEach(cardData => {
-                        if (!cardData) return; // Skip if cardData is null or undefined
+        if (moveData && moveData[line]) {
+            moveData[line].forEach(cardData => {
+                if (!cardData) return; // Skip if cardData is null or undefined
 
-                        // Find the *first* available slot
-                        while (slotIndex < slots.length && slots[slotIndex].querySelector('.card')) {
-                            slotIndex++;
-                        }
-
-                        if (slotIndex < slots.length) {
-                            const card = createCard(cardData);
-                            slots[slotIndex].appendChild(card);
-                            unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                            slots[slotIndex].classList.add('taken');
-                            console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
-                        } else {
-                            console.error(`No available slot found in ${line}-row for card ${cardData.rank}${cardData.suit}`);
-                        }
-                    });
+                // Place the card in the next available slot
+                if (slotIndex < slots.length) {
+                    const card = createCard(cardData);
+                    slots[slotIndex].appendChild(card);
+                    unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                    slots[slotIndex].classList.add('taken');
+                    console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
+                    // IMPORTANT: Increment slotIndex *AFTER* placing EACH card.
+                    slotIndex++;
                 } else {
-                    console.warn(`No move data for line ${line} or moveData is undefined.`);
+                    console.error(`No available slot found in ${line}-row for card ${cardData.rank}${cardData.suit}`);
                 }
             });
+        } else {
+            console.warn(`No move data for line ${line} or moveData is undefined.`);
         }
+    });
+}
 
         function displayRoyalties(royalties) {
             console.log("Displaying royalties:", royalties);
