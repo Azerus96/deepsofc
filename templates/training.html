@@ -159,7 +159,7 @@
 
         .card {
             width: calc(70px + 2vw);
-            height: calc(100px + 2vw);
+                        height: calc(100px + 2vw);
             min-width: 50px;
             min-height: 70px;
             border-radius: 8px;
@@ -305,12 +305,14 @@
             padding: 5px;
             font-size: 12px;
             z-index: 3;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
+            opacity: 0; /* Start hidden */
+            transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out; /* Add transform to transition */
+            transform-origin: right center; /* Set transform origin */
         }
 
         .royalty-animation.show {
             opacity: 1;
+            transform: translateY(-50%) scale(1); /* Scale up for animation */
         }
 
         .total-royalty {
@@ -641,35 +643,20 @@
             const fragment = document.createDocumentFragment();
 
             setupTable();
-            for (let i = 0; i < 17; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'combination-slot';
-                slot.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                });
-                slot.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    const cardData = JSON.parse(e.dataTransfer.getData('card'));
-                    const cardKey = `${cardData.rank}${cardData.suit}`;
-                    if (!unavailableCards.has(cardKey) && slot.children.length === 0) {
-                        const card = createCard(cardData);
-                        slot.appendChild(card);
-                        unavailableCards.add(cardKey);
-                        slot.classList.add('taken');
-                    }
-                });
-                fragment.appendChild(slot);
-            }
-
-            const combinationArea = document.getElementById('combination-area');
-            combinationArea.innerHTML = '';
-            combinationArea.appendChild(fragment);
+            resetCombinationArea(); // Use the new function
 
             unavailableCards.clear(); // Очищаем unavailableCards
             selectedRank = null;
             selectedSuit = null;
             document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected', 'unavailable'));
             document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+            // Clear any displayed royalties
+            document.querySelectorAll('.royalty-animation').forEach(el => {
+                el.classList.remove('show');
+                el.textContent = '';
+            });
+            document.getElementById('total-royalty').textContent = '';
+
 
             fetch('/update_state', {
                 method: 'POST',
@@ -788,6 +775,11 @@
                         return;
                     }
 
+                    // Clear existing cards from the board *before* placing new ones
+                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
+                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+                    unavailableCards.clear();
+
                     placeCardsOnBoard(data.move); // Use data.move to get the card placements
 
                     if (data.royalties) {
@@ -798,28 +790,7 @@
                     }
 
                     // Clear combination area after successful placement
-                    const combinationArea = document.getElementById('combination-area');
-                    combinationArea.innerHTML = '';
-                    for (let i = 0; i < 17; i++) {
-                        const slot = document.createElement('div');
-                        slot.className = 'combination-slot';
-                        slot.addEventListener('dragover', (e) => {
-                            e.preventDefault();
-                        });
-                        slot.addEventListener('drop', (e) => {
-                            e.preventDefault();
-                            const cardData = JSON.parse(e.dataTransfer.getData('card'));
-                            const cardKey = `${cardData.rank}${cardData.suit}`;
-                            if (!unavailableCards.has(cardKey) && slot.children.length === 0) {
-                                const card = createCard(cardData);
-                                slot.appendChild(card);
-                                unavailableCards.add(cardKey);
-                                slot.classList.add('taken');
-                            }
-                        });
-                        combinationArea.appendChild(slot);
-                    }
-
+                    resetCombinationArea();
 
                     saveGameStateToSession();
                 })
@@ -830,36 +801,66 @@
             }
         }
 
+        function resetCombinationArea() {
+            const combinationArea = document.getElementById('combination-area');
+            combinationArea.innerHTML = ''; // Clear all slots
+
+            // Re-add the empty slots
+            for (let i = 0; i < 17; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'combination-slot';
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
+                combinationArea.appendChild(slot);
+            }
+        }
+
+        // Define the named function for the drop event
+        function handleCombinationSlotDrop(e) {
+            e.preventDefault();
+            const cardData = JSON.parse(e.dataTransfer.getData('card'));
+            const cardKey = `${cardData.rank}${cardData.suit}`;
+            if (!unavailableCards.has(cardKey) && e.currentTarget.children.length === 0) {
+                const card = createCard(cardData);
+                e.currentTarget.appendChild(card);
+                unavailableCards.add(cardKey);
+                e.currentTarget.classList.add('taken');
+            }
+        }
+
         function placeCardsOnBoard(moveData) {
             console.log("placeCardsOnBoard called with moveData:", moveData);
             const lines = ['top', 'middle', 'bottom'];
+
             lines.forEach(line => {
                 const row = document.getElementById(`${line}-row`);
-                if (moveData && moveData[line]) { // Check if moveData and line data exist
-                    moveData[line].forEach((cardData, index) => { // Add index for logging
-                        const card = createCard(cardData);
-                        const slots = row.querySelectorAll('.card-slot');
+                const slots = row.querySelectorAll('.card-slot');
+                let slotIndex = 0; // Keep track of the current slot
 
-                        if (index < slots.length) { // Ensure index is within slot bounds
-                            const slot = slots[index]; // Use index to target specific slot
-                            if (!slot.querySelector('.card')) { // Double check if slot is empty before appending
-                                slot.appendChild(card);
-                                unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                                slot.classList.add('taken');
-                                console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${index}`); // Log placement
-                            } else {
-                                console.warn(`Slot ${index} in ${line}-row was not empty, card ${cardData.rank}${cardData.suit} not placed.`); // Warn if slot is unexpectedly full
-                            }
+                if (moveData && moveData[line]) {
+                    moveData[line].forEach(cardData => {
+                        if (!cardData) return; // Skip if cardData is null or undefined
+
+                        // Find the *first* available slot
+                        while (slotIndex < slots.length && slots[slotIndex].querySelector('.card')) {
+                            slotIndex++;
+                        }
+
+                        if (slotIndex < slots.length) {
+                            const card = createCard(cardData);
+                            slots[slotIndex].appendChild(card);
+                            unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                            slots[slotIndex].classList.add('taken');
+                            console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
                         } else {
-                            console.error(`No slot available at index ${index} in ${line}-row for card ${cardData.rank}${cardData.suit}`); // Error if index out of bounds
+                            console.error(`No available slot found in ${line}-row for card ${cardData.rank}${cardData.suit}`);
                         }
                     });
                 } else {
-                    console.warn(`No move data for line ${line} or moveData is undefined.`); // Warn if moveData for line is missing
+                    console.warn(`No move data for line ${line} or moveData is undefined.`);
                 }
             });
         }
-
 
         function displayRoyalties(royalties) {
             console.log("Displaying royalties:", royalties);
@@ -869,17 +870,22 @@
                 if (royaltyValue > 0) {
                     const row = document.getElementById(`${line}-row`);
                     const slots = row.querySelectorAll('.card-slot');
-                    const lastSlot = slots[slots.length - 1]; // Get the last slot in the row
+                    const lastSlot = slots[slots.length - 1]; // Get the last slot
 
                     const royaltyAnimation = lastSlot.querySelector('.royalty-animation');
                     if (royaltyAnimation) {
                         royaltyAnimation.textContent = `+${royaltyValue}`;
-                        royaltyAnimation.classList.add('show');
+                        // Remove the 'show' class first to reset the animation
+                        royaltyAnimation.classList.remove('show');
+                        // Use requestAnimationFrame to ensure the removal takes effect
+                        requestAnimationFrame(() => {
+                            royaltyAnimation.classList.add('show');
+                        });
 
                         // Hide the animation after a timeout
                         setTimeout(() => {
                             royaltyAnimation.classList.remove('show');
-                        }, 1000); // Adjust the timeout as needed
+                        }, 3000); // Increased timeout for visibility
                     }
                 }
             });
@@ -888,8 +894,9 @@
         function displayTotalRoyalty(totalRoyalty) {
             console.log("Displaying total royalty:", totalRoyalty);
             const totalRoyaltyElement = document.getElementById('total-royalty');
-            totalRoyaltyElement.textContent = `Total Royalty: ${totalRoyalty}`;
+            totalRoyaltyElement.textContent = `Total Royalty: +${totalRoyalty}`; // Add "+" sign
         }
+
 
         function saveGameStateToSession() {
             const gameState = getGameStateFromDOM();
@@ -990,25 +997,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             setupTable();
 
-            for (let i = 0; i < 17; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'combination-slot';
-                slot.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                });
-                slot.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    const cardData = JSON.parse(e.dataTransfer.getData('card'));
-                    const cardKey = `${cardData.rank}${cardData.suit}`;
-                    if (!unavailableCards.has(cardKey) && slot.children.length === 0) {
-                        const card = createCard(cardData);
-                        slot.appendChild(card);
-                        unavailableCards.add(cardKey);
-                        slot.classList.add('taken');
-                    }
-                });
-                document.getElementById('combination-area').appendChild(slot);
-            }
+           resetCombinationArea();
 
             const savedFullscreen = localStorage.getItem('isFullscreen') === 'true';
             if (savedFullscreen) {
