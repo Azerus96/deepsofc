@@ -3,7 +3,7 @@ import os
 import ai_engine
 from ai_engine import CFRAgent, RandomAgent, Card
 import utils
-import github_utils
+import github_utils  # Import the github_utils module
 import time
 import json
 from threading import Thread, Event
@@ -62,6 +62,26 @@ def training():
                 'aiType': 'mccfr'
             }
         }
+    else: # IMPORTANT: Load Card objects from dictionaries
+        app.logger.info("Loading existing game state from session")
+        if 'selected_cards' in session['game_state']:
+            session['game_state']['selected_cards'] = [
+                Card.from_dict(card_dict) for card_dict in session['game_state']['selected_cards']
+                if isinstance(card_dict, dict)
+            ]
+        if 'board' in session['game_state']:
+            for line in ['top', 'middle', 'bottom']:
+                if line in session['game_state']['board']:
+                    session['game_state']['board'][line] = [
+                        Card.from_dict(card_dict) for card_dict in session['game_state']['board'][line]
+                        if isinstance(card_dict, dict)
+                    ]
+        if 'discarded_cards' in session['game_state']:
+            session['game_state']['discarded_cards'] = [
+                Card.from_dict(card_dict) for card_dict in session['game_state']['discarded_cards']
+                if isinstance(card_dict, dict)
+            ]
+
 
     # Initialize AI agent if it's not initialized or settings have changed
     if cfr_agent is None or session['game_state']['ai_settings'] != session.get('previous_ai_settings'):
@@ -90,26 +110,29 @@ def update_state():
         if 'game_state' not in session:
             session['game_state'] = {}
 
-        # Update selected_cards (replace, don't append)
+        # Update selected_cards (replace, don't append, and use to_dict)
         if 'selected_cards' in game_state:
             session['game_state']['selected_cards'] = [
-                Card.from_dict(card_dict) for card_dict in game_state['selected_cards']
-                if isinstance(card_dict, dict)
+                card_dict for card_dict in game_state['selected_cards']  # Keep as dictionaries
             ]
             app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
 
-        # Update board (correctly handle Card objects)
+        # Update board (correctly handle Card objects, and use to_dict)
         if 'board' in game_state:
             for line in ['top', 'middle', 'bottom']:
                 if line in game_state['board']:
                     session['game_state']['board'][line] = [
-                        Card.from_dict(card_dict) for card_dict in game_state['board'][line]
-                        if isinstance(card_dict, dict)
+                        card_dict for card_dict in game_state['board'][line]  # Keep as dictionaries
                     ]
             app.logger.info(f"Updated board: {session['game_state']['board']}")
 
         # Update other keys (discarded_cards, ai_settings, etc.)
-        for key in ['discarded_cards', 'ai_settings']:
+        #   Make sure discarded_cards are also stored as dictionaries
+        if 'discarded_cards' in game_state:
+            session['game_state']['discarded_cards'] = [
+                card_dict for card_dict in game_state['discarded_cards']
+            ]
+        for key in ['ai_settings']:  # Only ai_settings is not a list of cards
             if key in game_state:
                 session['game_state'][key] = game_state[key]
 
@@ -164,27 +187,42 @@ def ai_move():
             board=board,
             discarded_cards=discarded_cards,
             ai_settings=ai_settings,
-            deck=ai_engine.Card.get_all_cards()  # Corrected call to get_all_cards()
+            deck=ai_engine.Card.get_all_cards()
         )
         app.logger.info(f"Created game state: {game_state}")
 
-        # Check if the board is full before the AI makes a move
+
+        # --- END OF GAME HANDLING ---
         if game_state.is_terminal():
             app.logger.info("Game is in terminal state")
-            # Calculate royalties and update AI progress
-            payoff = game_state.get_payoff()
-            app.logger.info(f"Game over. Payoff: {payoff}")
+            payoff = game_state.get_payoff()  # Calculate the final payoff
+            royalties = game_state.calculate_royalties()
+            total_royalty = sum(royalties.values())
+            app.logger.info(f"Game over. Payoff: {payoff}, Royalties: {royalties}, Total: {total_royalty}")
 
-            # Update AI progress based on the game result (if using MCCFR)
+            # Save AI progress (if using MCCFR)
             if cfr_agent and ai_settings.get('aiType') == 'mccfr':
                 try:
-                    # No need to update strategy here, just save the progress
                     cfr_agent.save_progress()
-                    app.logger.info("AI progress saved successfully.")
+                    app.logger.info("AI progress saved locally.")
+
+                    # Try to save to GitHub
+                    if github_utils.save_progress_to_github():
+                        app.logger.info("AI progress saved to GitHub.")
+                    else:
+                        app.logger.warning("Failed to save AI progress to GitHub.")
+
                 except Exception as e:
                     app.logger.error(f"Error saving AI progress: {e}")
 
-            return jsonify({'message': 'Game over', 'payoff': payoff}), 200
+            return jsonify({
+                'message': 'Game over',
+                'payoff': payoff,
+                'royalties': royalties,
+                'total_royalty': total_royalty
+            }), 200
+        # --- END OF END OF GAME HANDLING ---
+
 
     except (KeyError, TypeError, ValueError) as e:
         app.logger.error(f"Error in ai_move during game state creation: {e}")
@@ -229,31 +267,28 @@ def ai_move():
     serialized_move = serialize_move(move)
     app.logger.info(f"Serialized move: {serialized_move}")
 
-    # Calculate royalties
+    # Calculate royalties (even if not terminal, for display)
     royalties = game_state.calculate_royalties()
     total_royalty = sum(royalties.values())
+
 
     # Update game state in session (correctly handling occupied slots)
     if move:
         app.logger.info("Updating game state in session with AI move")
         for line in ['top', 'middle', 'bottom']:
-            if line in move:  # Check if the line exists in the move
+            if line in move:
                 placed_cards = move.get(line, [])
-                slot_index = 0  # Start checking from the first slot in each line
+                slot_index = 0
                 for card in placed_cards:
                     serialized_card = serialize_card(card)
-                    app.logger.info(f"Placing card: {serialized_card} on line: {line} at index: {slot_index}")
-
-                    # Find the next available slot in the line
+                    # Find the next available slot
                     while slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is not None:
                         slot_index += 1
-
-                    # Place the card if an available slot is found
                     if slot_index < len(session['game_state']['board'][line]):
                         session['game_state']['board'][line][slot_index] = serialized_card
-                        # slot_index += 1  # Don't increment here, place all cards in order
                     else:
-                        app.logger.warning(f"No available slot found for card {serialized_card} on line {line}")
+                        app.logger.warning(f"No slot for {serialized_card} on {line}")
+
 
         discarded_card = move.get('discarded')
         if discarded_card:
@@ -261,13 +296,7 @@ def ai_move():
 
         session.modified = True
 
-    # Save AI progress periodically
-    if cfr_agent and cfr_agent.iterations % 100 == 0:
-        try:
-            cfr_agent.save_progress()
-            app.logger.info("AI progress saved successfully.")
-        except Exception as e:
-            app.logger.error(f"Error saving AI progress: {e}")
+    # NO PERIODIC SAVING HERE - only save at the end of the game
 
     app.logger.info(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
     return jsonify({
