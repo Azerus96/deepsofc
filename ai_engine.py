@@ -448,7 +448,7 @@ class GameState:
             high_card = max(ranks, key=Card.RANKS.index)
             return 1 if high_card == 'A' else 0
 
-        def get_fantasy_bonus(self):
+    def get_fantasy_bonus(self):
         """Calculates the bonus for fantasy mode."""
         bonus = 0
         top_rank, _ = self.evaluate_hand(self.board.top)
