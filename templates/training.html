@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        body {
+        /* ... (your existing CSS) ... */
+        /* Style remains unchanged */
+         body {
             margin: 0;
             padding: 20px;
             font-family: Arial, sans-serif;
@@ -375,7 +377,7 @@
             <label for="fantasyType">Тип фантазии:</label>
             <select id="fantasyType">
                 <option value="normal">Обычная</option>
-                                <option value="progressive">Прогрессивная</option>
+                <option value="progressive">Прогрессивная</option>
             </select>
         </div>
         <div class="setting-group">
@@ -445,7 +447,7 @@
         <div class="selector-row">
             <button class="selector-item action-button" onclick="distributeCards()">+</button>
             <div class="selector-item" data-suit="♥">♥</div>
-            <div class="selector-item" data-suit="♦">♦</div>
+                        <div class="selector-item" data-suit="♦">♦</div>
             <div class="selector-item" data-suit="♣">♣</div>
             <div class="selector-item" data-suit="♠">♠</div>
             <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
@@ -723,83 +725,91 @@
             };
         }
 
-        function distributeCards() {
-            console.log("distributeCards() called");
-            const gameState = getGameStateFromDOM();
-            const numCards = gameState.selected_cards.length;
-            console.log("Current game state:", gameState);
-            console.log("Number of selected cards:", numCards);
+function distributeCards() {
+    console.log("distributeCards() called");
+    const gameState = getGameStateFromDOM();
+    const numCards = gameState.selected_cards.length;
+    console.log("Current game state:", gameState);
+    console.log("Number of selected cards:", numCards);
 
-            // Correctly check if cards have been placed on the board
-            const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
-            console.log("Cards placed on the board:", cardsPlaced);
+    // Correctly check if cards have been placed on the board
+    const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
+    console.log("Cards placed on the board:", cardsPlaced);
 
-            if (numCards === 0 && !cardsPlaced) {
-                alert('Сначала добавьте карты!');
+    if (numCards === 0 && !cardsPlaced) {
+        alert('Сначала добавьте карты!');
+        return;
+    }
+
+    // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
+    if (cardsPlaced || numCards > 0) {
+        console.log("Calling AI to distribute cards");
+        const aiSettings = {
+            fantasyType: document.getElementById('fantasyType').value,
+            fantasyMode: document.getElementById('fantasyMode').checked,
+            aiTime: document.getElementById('aiTime').value,
+            iterations: document.getElementById('iterations').value,
+            stopThreshold: document.getElementById('stopThreshold').value,
+            aiType: document.getElementById('aiType').value
+        };
+
+        const requestData = JSON.stringify({ ...gameState, ai_settings: aiSettings });
+        console.log("Sending data to /ai_move:", requestData);
+
+        fetch('/ai_move', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: requestData
+        })
+        .then(response => {
+            console.log("AI move response status:", response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("AI move response data:", data);
+            if (data.error) {
+                alert(data.error);
                 return;
             }
 
-            // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
-            if (cardsPlaced || numCards > 0) {
-                console.log("Calling AI to distribute cards");
-                const aiSettings = {
-                    fantasyType: document.getElementById('fantasyType').value,
-                    fantasyMode: document.getElementById('fantasyMode').checked,
-                    aiTime: document.getElementById('aiTime').value,
-                    iterations: document.getElementById('iterations').value,
-                    stopThreshold: document.getElementById('stopThreshold').value,
-                    aiType: document.getElementById('aiType').value
-                };
+            // Clear existing cards from the board *before* placing new ones
+            document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
+            document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+            unavailableCards.clear();
 
-                const requestData = JSON.stringify({ ...gameState, ai_settings: aiSettings });
-                console.log("Sending data to /ai_move:", requestData);
-
-                fetch('/ai_move', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: requestData
-                })
-                .then(response => {
-                    console.log("AI move response status:", response.status);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("AI move response data:", data);
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
-
-                    // Clear existing cards from the board *before* placing new ones
-                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
-                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-                    unavailableCards.clear();
-
-                    placeCardsOnBoard(data.move); // Use data.move to get the card placements
-
-                    if (data.royalties) {
-                        displayRoyalties(data.royalties);
-                    }
-                    if (data.total_royalty !== undefined) {
-                        displayTotalRoyalty(data.total_royalty);
-                    }
-
-                    // Clear combination area after successful placement
-                    resetCombinationArea();
-
-                    saveGameStateToSession();
-                })
-                .catch(error => {
-                    console.error('Error during AI move request:', error);
-                    alert('Произошла ошибка при получении хода ИИ.');
-                });
+            //Check for game over before placing cards
+            if (data.message === 'Game over') {
+                displayRoyalties(data.royalties);
+                displayTotalRoyalty(data.total_royalty);
+                alert('Игра окончена!  Роялти подсчитаны.');
+                return; // Stop here if the game is over
             }
-        }
+
+            placeCardsOnBoard(data.move); // Use data.move to get the card placements
+
+            if (data.royalties) {
+                displayRoyalties(data.royalties);
+            }
+            if (data.total_royalty !== undefined) {
+                displayTotalRoyalty(data.total_royalty);
+            }
+
+            // Clear combination area after successful placement
+            resetCombinationArea();
+
+            saveGameStateToSession();
+        })
+        .catch(error => {
+            console.error('Error during AI move request:', error);
+            alert('Произошла ошибка при получении хода ИИ.');
+        });
+    }
+}
 
         function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
