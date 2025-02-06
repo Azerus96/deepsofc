@@ -411,12 +411,11 @@
         </div>
     </div>
 
-    <button class="fullscreen-btn" onclick="toggleFullScreen()">
+	<button class="fullscreen-btn" onclick="toggleFullScreen()">
         <span class="material-icons">fullscreen</span>
     </button>
     <div class="controls">
-        <button onclick="goToGame()">К игре</button>
-        <button onclick="resetTraining()">Сброс</button>
+        <button onclick="resetTraining()">Сброс</button> <!-- Removed startGame, keep reset -->
     </div>
 
     <div class="total-royalty" id="total-royalty"></div>
@@ -460,7 +459,7 @@
         let selectedSuit = null;
         let isFullscreen = false;
         let unavailableCards = new Set();
-        let dealPhase = 0; // Add dealPhase
+        let dealPhase = 0; // Keep track of the deal phase. 0 = initial deal.
 
         document.addEventListener('fullscreenchange', () => {
             isFullscreen = !!document.fullscreenElement;
@@ -493,11 +492,6 @@
             }
         }
 
-        function goToGame() {
-            localStorage.setItem('isFullscreen', isFullscreen);
-            window.location.href = '/';
-        }
-
         function createCard(cardData) {
             console.log("Creating card:", cardData);
             const card = document.createElement('div');
@@ -512,7 +506,8 @@
 
             card.addEventListener('dblclick', () => {
                 const cardKey = `${cardData.rank}${cardData.suit}`;
-                if (unavailableCards.has(cardKey)) {
+                // Only remove from unavailableCards if it's in the combination area
+                if (unavailableCards.has(cardKey) && card.parentNode.classList.contains('combination-slot')) {
                     unavailableCards.delete(cardKey);
                     document.querySelectorAll('.selector-item').forEach(item => {
                         if (item.dataset.rank === cardData.rank) {
@@ -522,8 +517,8 @@
                             item.classList.remove('unavailable');
                         }
                     });
+                    card.remove();
                 }
-                card.remove();
             });
 
             card.draggable = true;
@@ -535,11 +530,6 @@
 
             card.addEventListener('dragend', (e) => {
                 card.style.opacity = '1';
-                if (e.dataTransfer.dropEffect === 'none') {
-                    const cardKey = `${cardData.rank}${cardData.suit}`;
-                    removeCardFromUnavailable(cardKey);
-                    card.remove();
-                }
             });
 
             return card;
@@ -556,20 +546,13 @@
                 for (let i = 0; i < numCards[index]; i++) {
                     const slot = document.createElement('div');
                     slot.className = 'card-slot';
-                    slot.style.position = 'relative'; // Add this line
+                    slot.style.position = 'relative';
                     slot.addEventListener('dragover', (e) => {
                         e.preventDefault();
                     });
+					// Prevent dropping cards directly onto the board
                     slot.addEventListener('drop', (e) => {
                         e.preventDefault();
-                        const cardData = JSON.parse(e.dataTransfer.getData('card'));
-                        const cardKey = `${cardData.rank}${cardData.suit}`;
-                        if (!unavailableCards.has(cardKey) && slot.children.length === 0) {
-                            const card = createCard(cardData);
-                            slot.appendChild(card);
-                            unavailableCards.add(cardKey);
-                            slot.classList.add('taken');
-                        }
                     });
 
                     // Add a royalty animation element to each slot
@@ -632,7 +615,10 @@
             const combinationArea = document.getElementById('combination-area');
             combinationArea.querySelectorAll('.card').forEach(card => {
                 const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
-                unavailableCards.add(cardKey);
+                // Only add to unavailableCards if it's NOT already on the board
+                if (!isCardOnBoard({rank: card.dataset.rank, suit: card.dataset.suit})) {
+                    unavailableCards.add(cardKey);
+                }
                 card.parentElement.classList.remove('taken');
                 card.remove();
                 updateSelectorItemAvailability(card.dataset.rank, card.dataset.suit);
@@ -723,6 +709,17 @@
                 discarded_cards: discardedCards
             };
         }
+		
+		function isCardOnBoard(card) {
+			const board = getGameStateFromDOM().board;
+			for (const line in board) {
+				if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
         function distributeCards() {
             console.log("distributeCards() called");
             const gameState = getGameStateFromDOM();
@@ -731,28 +728,9 @@
             console.log("Number of selected cards:", numCards);
             console.log("dealPhase:", dealPhase);
 
-            // Correctly check if cards have been placed on the board
-            const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
-            console.log("Cards placed on the board:", cardsPlaced);
-
-            if (dealPhase === 0) {
-                // Initial placement logic
-                if (numCards === 5) {
-                    // Place the 5 cards directly on the board
-                    placeInitialCards(gameState.selected_cards);
-                    // Clear selected_cards AFTER placing
-                    gameState.selected_cards = [];
-                    // Increment dealPhase
-                    dealPhase++;
-                    console.log("dealPhase incremented to:", dealPhase);
-                    // Save the game state
-                    saveGameStateToSession();
-
-                } else {
-                    alert('Пожалуйста, выберите 5 начальных карт!');
-                }
-            } else if (numCards > 0) {
-                // AI move logic (only if cards are selected)
+            // Always call the AI, regardless of dealPhase or cardsPlaced.
+            // The AI will handle the initial placement and subsequent moves.
+            if (numCards > 0) {
                 console.log("Calling AI to distribute cards");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
@@ -837,47 +815,12 @@
                     alert('Произошла ошибка при получении хода ИИ.');
                 });
             }
-            else if (numCards === 0 && !cardsPlaced) {
-                alert('Сначала добавьте карты!');
-                return;
-            }
              else {
-                alert('Пожалуйста, разместите или сбросьте выбранные карты.');
+                alert('Пожалуйста, выберите карты для добавления.');
             }
         }
 
-        // New function to place initial cards
-        function placeInitialCards(cards) {
-            const topRow = document.getElementById('top-row');
-            const middleRow = document.getElementById('middle-row');
-            const bottomRow = document.getElementById('bottom-row');
-            const topSlots = topRow.querySelectorAll('.card-slot');
-            const middleSlots = middleRow.querySelectorAll('.card-slot');
-            const bottomSlots = bottomRow.querySelectorAll('.card-slot');
 
-            // Place cards on the board (you can adjust the logic here)
-            if (topSlots.length > 0 && cards[0]) {
-                topSlots[0].appendChild(createCard(cards[0]));
-                unavailableCards.add(`${cards[0].rank}${cards[0].suit}`);
-            }
-            if (middleSlots.length > 0 && cards[1]) {
-                middleSlots[0].appendChild(createCard(cards[1]));
-                unavailableCards.add(`${cards[1].rank}${cards[1].suit}`);
-            }
-            if (middleSlots.length > 1 && cards[2]) {
-                middleSlots[1].appendChild(createCard(cards[2]));
-                unavailableCards.add(`${cards[2].rank}${cards[2].suit}`);
-            }
-
-            if (bottomSlots.length > 0 && cards[3]) {
-                bottomSlots[0].appendChild(createCard(cards[3]));
-                unavailableCards.add(`${cards[3].rank}${cards[3].suit}`);
-            }
-            if (bottomSlots.length > 1 && cards[4]) {
-                bottomSlots[1].appendChild(createCard(cards[4]));
-                unavailableCards.add(`${cards[4].rank}${cards[4].suit}`);
-            }
-        }
 
         function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
@@ -888,7 +831,7 @@
                 const slot = document.createElement('div');
                 slot.className = 'combination-slot';
                 slot.addEventListener('dragover', (e) => e.preventDefault());
-                                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
+                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
                 combinationArea.appendChild(slot);
             }
         }
@@ -906,53 +849,52 @@
             }
         }
 
-      function placeCardsOnBoard(moveData) {
-        console.log("placeCardsOnBoard called with moveData:", moveData);
-        const lines = ['top', 'middle', 'bottom'];
-        const nextSlots = moveData.next_available_slots;
-        console.log("nextSlots:", nextSlots);
+        function placeCardsOnBoard(moveData) {
+          console.log("placeCardsOnBoard called with moveData:", moveData);
+          const lines = ['top', 'middle', 'bottom'];
+          const nextSlots = moveData.next_available_slots;
+          console.log("nextSlots:", nextSlots);
 
-        lines.forEach(line => {
-            console.log(`Processing line: ${line}`);
-            const row = document.getElementById(`${line}-row`);
-            if (!row) {
-                console.error(`Row element not found for line: ${line}`);
-                return; // Skip to next line if row is not found
-            }
-            const slots = row.querySelectorAll('.card-slot');
-            console.log(`Number of slots found in ${line}-row: ${slots.length}`);
-            let slotIndex = nextSlots[line];
-            console.log(`Initial slotIndex for ${line}: ${slotIndex}`);
+          lines.forEach(line => {
+              console.log(`Processing line: ${line}`);
+              const row = document.getElementById(`${line}-row`);
+              if (!row) {
+                  console.error(`Row element not found for line: ${line}`);
+                  return; // Skip to next line if row is not found
+              }
+              const slots = row.querySelectorAll('.card-slot');
+              console.log(`Number of slots found in ${line}-row: ${slots.length}`);
+              let slotIndex = nextSlots[line];
+              console.log(`Initial slotIndex for ${line}: ${slotIndex}`);
 
-            if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
-                moveData[line].forEach((cardData, card_idx) => {
-                    if (!cardData) return;
+              if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
+                  moveData[line].forEach((cardData, card_idx) => {
+                      if (!cardData) return;
 
-                    if (slotIndex >= slots.length || slotIndex < 0) {
-                        console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
-                        return; // Skip card if slotIndex is invalid
-                    }
-
-                    const slot = slots[slotIndex];
-                      if (!slot) {
-                        console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                        return; // Skip card if slot is null
+                      if (slotIndex >= slots.length || slotIndex < 0) {
+                          console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
+                          return; // Skip card if slotIndex is invalid
                       }
 
+                      const slot = slots[slotIndex];
+                      if (!slot) {
+                          console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
+                          return;
+                      }
 
-                    console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
-                    const card = createCard(cardData);
-                    slot.appendChild(card);
-                    unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                    slot.classList.add('taken');
-                    slotIndex++;
-                    console.log(`slotIndex incremented to: ${slotIndex} after placing card ${cardData.rank}${cardData.suit}`);
-                });
-            } else {
-                console.warn(`No move data or slot data for line ${line}.`);
-            }
-        });
-    }
+                      console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
+                      const card = createCard(cardData);
+                      slot.appendChild(card);
+                      unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                      slot.classList.add('taken');
+                      slotIndex++;
+                                            console.log(`slotIndex incremented to: ${slotIndex} after placing card ${cardData.rank}${cardData.suit}`);
+                  });
+              } else {
+                  console.warn(`No move data or slot data for line ${line}.`);
+              }
+          });
+        }
 
 
         function displayRoyalties(royalties) {
