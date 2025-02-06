@@ -298,7 +298,7 @@
 			font-size: 12px;
 			z-index: 3;
 			opacity: 0; /* Start hidden */
-			transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out; /* Add transform to transition */
+			transition: opacity 0.5s ease-in-out, transform: 0.5s ease-in-out; /* Add transform to transition */
 			transform-origin: right center; /* Set transform origin */
 		}
 
@@ -723,7 +723,7 @@
                 console.log("Calling AI to distribute cards");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
-                    fantasyMode: document.getElementById('fantasyMode').checked,
+			                    fantasyMode: document.getElementById('fantasyMode').checked,
                     aiTime: document.getElementById('aiTime').value,
                     iterations: document.getElementById('iterations').value,
                     stopThreshold: document.getElementById('stopThreshold').value,
@@ -769,6 +769,7 @@
                     document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
                     unavailableCards.clear();
 
+
                     // Check for game over before placing cards
                     if (data.message === 'Game over') {
                         displayRoyalties(data.royalties);
@@ -810,6 +811,7 @@
         }
 
 
+
         function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
             combinationArea.innerHTML = ''; // Clear all slots
@@ -819,7 +821,7 @@
                 const slot = document.createElement('div');
                 slot.className = 'combination-slot';
                 slot.addEventListener('dragover', (e) => e.preventDefault());
-                slot.addEventListener('drop', handleCombinationSlotDrop);
+                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
                 combinationArea.appendChild(slot);
             }
         }
@@ -837,6 +839,7 @@
                 e.currentTarget.classList.add('taken'); // Mark the slot as taken
             }
         }
+
 
         function placeCardsOnBoard(moveData) {
           console.log("placeCardsOnBoard called with moveData:", moveData);
@@ -858,7 +861,7 @@
 
               if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
                   moveData[line].forEach((cardData, card_idx) => {
-                                            if (!cardData) return;
+                      if (!cardData) return;
 
                       if (slotIndex >= slots.length || slotIndex < 0) {
                           console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
@@ -868,7 +871,7 @@
                       const slot = slots[slotIndex];
                       if (!slot) {
                           console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                          return; // Skip card if slot is null
+                          return;
                       }
 
                       console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
@@ -1002,16 +1005,15 @@
                 updateSelectorItemAvailability(rank, suit);
             }
         }
-		// Helper function to check if a card is already on the board
-        function isCardOnBoard(card) {
-          const board = getGameStateFromDOM().board;
-          for (const line in board) {
-            if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
-              return true;
-            }
-          }
-          return false;
-        }
+		function isCardOnBoard(card) {
+			const board = getGameStateFromDOM().board;
+			for (const line in board) {
+				if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
+					return true;
+				}
+			}
+			return false;
+		}
 
         function updateSelectorItemAvailability(rank, suit) {
             console.log("Updating selector item availability for:", rank, suit);
