@@ -836,38 +836,38 @@ function distributeCards() {
             }
         }
 
-function placeCardsOnBoard(moveData) {
-  console.log("placeCardsOnBoard called with moveData:", moveData);
-  const lines = ['top', 'middle', 'bottom'];
-  const nextSlots = moveData.next_available_slots; // Get slot indices
+        function placeCardsOnBoard(moveData) {
+          console.log("placeCardsOnBoard called with moveData:", moveData);
+          const lines = ['top', 'middle', 'bottom'];
+          const nextSlots = moveData.next_available_slots;
 
-  lines.forEach(line => {
-    const row = document.getElementById(`${line}-row`);
-    let slotIndex = nextSlots[line]; // Use the provided index
+          lines.forEach(line => {
+            const row = document.getElementById(`${line}-row`);
+            const slots = row.querySelectorAll('.card-slot'); // Get a static NodeList of slots
+            let slotIndex = nextSlots[line];
 
-    if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
-      moveData[line].forEach(cardData => {
-        if (!cardData) return;
+            if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
+              moveData[line].forEach(cardData => {
+                if (!cardData) return;
 
-        // Get the slot element directly using getElementsByClassName and the index
-        const slot = row.getElementsByClassName('card-slot')[slotIndex];
+                const slot = slots[slotIndex]; // Access slots using the static NodeList
 
-        if (slot) {
-          const card = createCard(cardData);
-          slot.appendChild(card);
-          unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-          slot.classList.add('taken');
-          console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
-          slotIndex++; // Increment for the NEXT card on this line
-        } else {
-          console.error(`No slot found in ${line}-row for card ${cardData.rank}${cardData.suit} at index ${slotIndex}`);
+                if (slot) {
+                  const card = createCard(cardData);
+                  slot.appendChild(card);
+                  unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                  slot.classList.add('taken');
+                  console.log(`Placed card ${cardData.rank}${cardData.suit} in ${line}-row slot ${slotIndex}`);
+                  slotIndex++;
+                } else {
+                  console.error(`No slot found in ${line}-row for card ${cardData.rank}${cardData.suit} at index ${slotIndex}`);
+                }
+              });
+            } else {
+              console.warn(`No move data or slot data for line ${line}.`);
+            }
+          });
         }
-      });
-    } else {
-      console.warn(`No move data or slot data for line ${line}.`);
-    }
-  });
-}
 
         function displayRoyalties(royalties) {
             console.log("Displaying royalties:", royalties);
