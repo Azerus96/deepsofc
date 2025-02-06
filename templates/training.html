@@ -643,7 +643,7 @@
             const fragment = document.createDocumentFragment();
 
             setupTable();
-                        resetCombinationArea();
+            resetCombinationArea();
 
             unavailableCards.clear();
             selectedRank = null;
@@ -686,7 +686,7 @@
                 alert('Произошла ошибка при сбросе состояния.');
             });
         }
-
+        //Corrected getGameStateFromDOM
         function getGameStateFromDOM() {
             const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
                 rank: card.dataset.rank,
@@ -695,18 +695,18 @@
             console.log("Selected cards from DOM:", selectedCards);
 
             const board = {
-                top: Array.from(document.querySelectorAll('#top-row .card')).map(slotCard => slotCard.dataset ? {
-                    rank: slotCard.dataset.rank,
-                    suit: slotCard.dataset.suit
-                } : null).filter(card => card), // Filter out nulls if slots are empty
-                middle: Array.from(document.querySelectorAll('#middle-row .card')).map(slotCard => slotCard.dataset ? {
-                    rank: slotCard.dataset.rank,
-                    suit: slotCard.dataset.suit
-                } : null).filter(card => card),
-                bottom: Array.from(document.querySelectorAll('#bottom-row .card')).map(slotCard => slotCard.dataset ? {
-                    rank: slotCard.dataset.rank,
-                    suit: slotCard.dataset.suit
-                } : null).filter(card => card)
+                top: Array.from(document.querySelectorAll('#top-row .card-slot .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                })),
+                middle: Array.from(document.querySelectorAll('#middle-row .card-slot .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                })),
+                bottom: Array.from(document.querySelectorAll('#bottom-row .card-slot .card')).map(card => ({
+                    rank: card.dataset.rank,
+                    suit: card.dataset.suit
+                }))
             };
 
             const discardedCards = Array.from(unavailableCards).map(cardKey => {
@@ -759,7 +759,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: requestData
+                                        body: requestData
                 })
                 .then(response => {
                     console.log("AI move response status:", response.status); // Log the status
