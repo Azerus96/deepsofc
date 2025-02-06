@@ -705,7 +705,7 @@
                 } : null).filter(card => card),
                 bottom: Array.from(document.querySelectorAll('#bottom-row .card')).map(slotCard => slotCard.dataset ? {
                     rank: slotCard.dataset.rank,
-                    suit: card.dataset.suit
+                    suit: slotCard.dataset.suit
                 } : null).filter(card => card)
             };
 
@@ -723,91 +723,96 @@
             };
         }
 
-function distributeCards() {
-    console.log("distributeCards() called");
-    const gameState = getGameStateFromDOM();
-    const numCards = gameState.selected_cards.length;
-    console.log("Current game state:", gameState);
-    console.log("Number of selected cards:", numCards);
+        function distributeCards() {
+            console.log("distributeCards() called");
+            const gameState = getGameStateFromDOM();
+            const numCards = gameState.selected_cards.length;
+            console.log("Current game state:", gameState);
+            console.log("Number of selected cards:", numCards);
 
-    // Correctly check if cards have been placed on the board
-    const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
-    console.log("Cards placed on the board:", cardsPlaced);
+            // Correctly check if cards have been placed on the board
+            const cardsPlaced = Object.values(gameState.board).flat().some(card => card && card.rank);
+            console.log("Cards placed on the board:", cardsPlaced);
 
-    if (numCards === 0 && !cardsPlaced) {
-        alert('Сначала добавьте карты!');
-        return;
-    }
-
-    // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
-    if (cardsPlaced || numCards > 0) {
-        console.log("Calling AI to distribute cards");
-        const aiSettings = {
-            fantasyType: document.getElementById('fantasyType').value,
-            fantasyMode: document.getElementById('fantasyMode').checked,
-            aiTime: document.getElementById('aiTime').value,
-            iterations: document.getElementById('iterations').value,
-            stopThreshold: document.getElementById('stopThreshold').value,
-            aiType: document.getElementById('aiType').value
-        };
-
-        const requestData = JSON.stringify({ ...gameState, ai_settings: aiSettings });
-        console.log("Sending data to /ai_move:", requestData);
-
-        fetch('/ai_move', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: requestData
-        })
-        .then(response => {
-            console.log("AI move response status:", response.status);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("AI move response data:", data);
-            if (data.error) {
-                alert(data.error);
+            if (numCards === 0 && !cardsPlaced) {
+                alert('Сначала добавьте карты!');
                 return;
             }
 
-            // Clear existing cards from the board *before* placing new ones
-            document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
-            document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-            unavailableCards.clear();
+            // Call the AI if cards have been placed on the board OR if there are cards in the 17-slot area
+            if (cardsPlaced || numCards > 0) {
+                console.log("Calling AI to distribute cards");
+                const aiSettings = {
+                    fantasyType: document.getElementById('fantasyType').value,
+                    fantasyMode: document.getElementById('fantasyMode').checked,
+                    aiTime: document.getElementById('aiTime').value,
+                    iterations: document.getElementById('iterations').value,
+                    stopThreshold: document.getElementById('stopThreshold').value,
+                    aiType: document.getElementById('aiType').value
+                };
 
-            //Check for game over before placing cards
-            if (data.message === 'Game over') {
-                displayRoyalties(data.royalties);
-                displayTotalRoyalty(data.total_royalty);
-                alert('Игра окончена!  Роялти подсчитаны.');
-                return; // Stop here if the game is over
+                const requestData = JSON.stringify({ ...gameState, ai_settings: aiSettings });
+                console.log("Sending data to /ai_move:", requestData);
+
+                fetch('/ai_move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: requestData
+                })
+                .then(response => {
+                    console.log("AI move response status:", response.status); // Log the status
+                    console.log("AI move response headers:", response.headers); // Log the headers
+                    if (!response.ok) {
+                        // IMPORTANT: Log the response text even if it's not OK
+                        return response.text().then(text => {
+                            console.error(`HTTP error! status: ${response.status}, text: ${text}`);
+                            throw new Error(`HTTP error! status: ${response.status}, text: ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("AI move response data:", data); // Log the data
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    // Clear existing cards from the board *before* placing new ones
+                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
+                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+                    unavailableCards.clear();
+
+                    //Check for game over before placing cards
+                    if (data.message === 'Game over') {
+                        displayRoyalties(data.royalties);
+                        displayTotalRoyalty(data.total_royalty);
+                        alert('Игра окончена!  Роялти подсчитаны.');
+                        return; // Stop here if the game is over
+                    }
+
+                    placeCardsOnBoard(data.move); // Use data.move to get the card placements
+
+                    if (data.royalties) {
+                        displayRoyalties(data.royalties);
+                    }
+                    if (data.total_royalty !== undefined) {
+                        displayTotalRoyalty(data.total_royalty);
+                    }
+
+                    // Clear combination area after successful placement
+                    resetCombinationArea();
+
+                    saveGameStateToSession();
+                })
+                .catch(error => {
+                    console.error('Error during AI move request:', error);
+                    alert('Произошла ошибка при получении хода ИИ.');
+                });
             }
-
-            placeCardsOnBoard(data.move); // Use data.move to get the card placements
-
-            if (data.royalties) {
-                displayRoyalties(data.royalties);
-            }
-            if (data.total_royalty !== undefined) {
-                displayTotalRoyalty(data.total_royalty);
-            }
-
-            // Clear combination area after successful placement
-            resetCombinationArea();
-
-            saveGameStateToSession();
-        })
-        .catch(error => {
-            console.error('Error during AI move request:', error);
-            alert('Произошла ошибка при получении хода ИИ.');
-        });
-    }
-}
+        }
 
         function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
@@ -837,50 +842,50 @@ function distributeCards() {
         }
 
         function placeCardsOnBoard(moveData) {
-            console.log("placeCardsOnBoard called with moveData:", moveData);
-            const lines = ['top', 'middle', 'bottom'];
-            const nextSlots = moveData.next_available_slots;
-            console.log("nextSlots:", nextSlots); // Log nextSlots
+          console.log("placeCardsOnBoard called with moveData:", moveData);
+          const lines = ['top', 'middle', 'bottom'];
+          const nextSlots = moveData.next_available_slots;
+          console.log("nextSlots:", nextSlots); // Log nextSlots
 
-            lines.forEach(line => {
-                console.log(`Processing line: ${line}`);
-                const row = document.getElementById(`${line}-row`);
-                if (!row) {
-                    console.error(`Row element not found for line: ${line}`);
-                    return; // Skip to next line if row is not found
-                }
-                const slots = row.querySelectorAll('.card-slot');
-                console.log(`Number of slots found in ${line}-row: ${slots.length}`); // Log slot count
-                let slotIndex = nextSlots[line];
-                console.log(`Initial slotIndex for ${line}: ${slotIndex}`); // Log initial slotIndex
+          lines.forEach(line => {
+              console.log(`Processing line: ${line}`);
+              const row = document.getElementById(`${line}-row`);
+              if (!row) {
+                  console.error(`Row element not found for line: ${line}`);
+                  return; // Skip to next line if row is not found
+              }
+              const slots = row.querySelectorAll('.card-slot');
+              console.log(`Number of slots found in ${line}-row: ${slots.length}`); // Log slot count
+              let slotIndex = nextSlots[line];
+              console.log(`Initial slotIndex for ${line}: ${slotIndex}`); // Log initial slotIndex
 
-                if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
-                    moveData[line].forEach((cardData, card_idx) => { // Add card_idx for logging
-                        if (!cardData) return;
+              if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
+                  moveData[line].forEach((cardData, card_idx) => { // Add card_idx for logging
+                      if (!cardData) return;
 
-                        if (slotIndex >= slots.length || slotIndex < 0) {
-                            console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
-                            return; // Skip card if slotIndex is invalid
-                        }
+                      if (slotIndex >= slots.length || slotIndex < 0) {
+                          console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
+                          return; // Skip card if slotIndex is invalid
+                      }
 
-                        const slot = slots[slotIndex];
-                        if (!slot) {
-                            console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                            return; // Skip card if slot is null
-                        }
+                      const slot = slots[slotIndex];
+                      if (!slot) {
+                          console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
+                          return; // Skip card if slot is null
+                      }
 
-                        console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
-                        const card = createCard(cardData);
-                        slot.appendChild(card);
-                        unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                        slot.classList.add('taken');
-                        slotIndex++;
-                        console.log(`slotIndex incremented to: ${slotIndex} after placing card ${cardData.rank}${cardData.suit}`); // Log incremented slotIndex
-                    });
-                } else {
-                    console.warn(`No move data or slot data for line ${line}.`);
-                }
-            });
+                                            console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
+                      const card = createCard(cardData);
+                      slot.appendChild(card);
+                      unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                      slot.classList.add('taken');
+                      slotIndex++;
+                      console.log(`slotIndex incremented to: ${slotIndex} after placing card ${cardData.rank}${cardData.suit}`); // Log incremented slotIndex
+                  });
+              } else {
+                  console.warn(`No move data or slot data for line ${line}.`);
+              }
+          });
         }
 
 
