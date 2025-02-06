@@ -100,7 +100,7 @@ def training():
         initialize_ai_agent(session['game_state']['ai_settings'])
         session['previous_ai_settings'] = session['game_state']['ai_settings'].copy()
 
-    app.logger.info(f"Current game state in session AFTER LOADING: {session['game_state']}") # ADDED LOGGING
+    app.logger.info(f"Current game state in session AFTER LOADING: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
 
 @app.route('/update_state', methods=['POST'])
@@ -122,8 +122,7 @@ def update_state():
         session['game_state'] = session.get('game_state', {})
         app.logger.info(f"Session BEFORE update: {session['game_state']}") # ADDED LOGGING
 
-        # --- TEMPORARILY SIMPLIFY UPDATE_STATE ---
-        # Only update the 'board' key for now
+        # Update board - APPEND, don't replace!
         if 'board' in game_state:
             for line in ['top', 'middle', 'bottom']:
                 if line in game_state['board']:
@@ -131,26 +130,23 @@ def update_state():
                     session['game_state']['board'].setdefault(line, []).extend(game_state['board'][line])
             app.logger.info(f"Updated board: {session['game_state']['board']}")
 
-        # --- TEMPORARILY COMMENT OUT OTHER UPDATES ---
-        # if 'selected_cards' in game_state:
-        #     session['game_state']['selected_cards'] = game_state['selected_cards']
-        #     app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
-
-        # if 'discarded_cards' in game_state:
-        #     session['game_state']['discarded_cards'] = game_state['discarded_cards']
-
-        # if 'ai_settings' in game_state:
-        #     session['game_state']['ai_settings'] = game_state['ai_settings']
+        # Update other keys
+        if 'selected_cards' in game_state:
+             session['game_state']['selected_cards'] = game_state['selected_cards']
+        if 'discarded_cards' in game_state:
+            session['game_state']['discarded_cards'] = game_state['discarded_cards']
+        if 'ai_settings' in game_state:
+            session['game_state']['ai_settings'] = game_state['ai_settings']
 
         session.modified = True
 
-        # Reinitialize AI agent if settings have changed (KEEP THIS)
-        if 'ai_settings' in game_state and game_state.get('ai_settings') != session.get('previous_ai_settings'):
+        # Reinitialize AI agent if settings have changed
+        if game_state.get('ai_settings') != session.get('previous_ai_settings'):
             app.logger.info("AI settings changed, reinitializing AI agent")
             initialize_ai_agent(game_state['ai_settings'])
             session['previous_ai_settings'] = game_state.get('ai_settings', {}).copy()
 
-        app.logger.info(f"Session AFTER update: {session['game_state']}") # ADDED LOGGING
+        app.logger.info(f"Session AFTER update: {session['game_state']}")
         return jsonify({'status': 'success'})
 
     except Exception as e:
