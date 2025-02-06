@@ -400,7 +400,7 @@
         </div>
     </div>
 
-	<button class="fullscreen-btn" onclick="toggleFullScreen()">
+    <button class="fullscreen-btn" onclick="toggleFullScreen()">
         <span class="material-icons">fullscreen</span>
     </button>
     <div class="controls">
@@ -443,12 +443,14 @@
     <div class="combination-area" id="combination-area"></div>
 
     <script>
+        // Глобальные переменные и базовые функции (toggleMenu, toggleFullScreen, createCard и т.д.)
         let menuOpen = false;
         let selectedRank = null;
         let selectedSuit = null;
         let isFullscreen = false;
         let unavailableCards = new Set();
-        let dealPhase = 0; // Keep track of the deal phase. 0 = initial deal.
+        let dealPhase = 0; // 0 - начальная раздача
+        let gameState = {}; // Будет хранить состояние игры
 
         document.addEventListener('fullscreenchange', () => {
             isFullscreen = !!document.fullscreenElement;
@@ -482,7 +484,6 @@
         }
 
         function createCard(cardData) {
-            console.log("Creating card:", cardData);
             const card = document.createElement('div');
             card.className = 'card';
             card.dataset.rank = cardData.rank;
@@ -493,39 +494,35 @@
                 card.style.color = '#e44145';
             }
 
-            card.addEventListener('dblclick', () => {
-                const cardKey = `${cardData.rank}${cardData.suit}`;
-                // Only remove from unavailableCards if it's in the combination area
-                if (unavailableCards.has(cardKey) && card.parentNode.classList.contains('combination-slot')) {
-                    unavailableCards.delete(cardKey);
-                    document.querySelectorAll('.selector-item').forEach(item => {
-                        if (item.dataset.rank === cardData.rank) {
-                            item.classList.remove('unavailable');
-                        }
-                        if (item.dataset.suit === cardData.suit) {
-                            item.classList.remove('unavailable');
-                        }
-                    });
-                    card.remove();
-                }
-            });
-
             card.draggable = true;
             card.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', '');
                 e.dataTransfer.setData('card', JSON.stringify({ rank: card.dataset.rank, suit: card.dataset.suit }));
                 card.style.opacity = '0.5';
             });
-
             card.addEventListener('dragend', (e) => {
                 card.style.opacity = '1';
             });
-
+            card.addEventListener('dblclick', () => {
+                // Реализация удаления карты из combination area
+                const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
+                if (unavailableCards.has(cardKey) && card.parentNode.classList.contains('combination-slot')) {
+                    unavailableCards.delete(cardKey);
+                    document.querySelectorAll('.selector-item').forEach(item => {
+                        if (item.dataset.rank === card.dataset.rank) {
+                            item.classList.remove('unavailable');
+                        }
+                        if (item.dataset.suit === card.dataset.suit) {
+                            item.classList.remove('unavailable');
+                        }
+                    });
+                    card.remove();
+                }
+            });
             return card;
         }
 
         function setupTable() {
-            console.log("Setting up table");
             const rows = ['top', 'middle', 'bottom'];
             const numCards = [3, 5, 5];
 
@@ -536,15 +533,12 @@
                     const slot = document.createElement('div');
                     slot.className = 'card-slot';
                     slot.style.position = 'relative';
-                    slot.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                    });
-					// Prevent dropping cards directly onto the board
+                    slot.addEventListener('dragover', (e) => e.preventDefault());
+                    // Запрещаем прямое сбрасывание на стол
                     slot.addEventListener('drop', (e) => {
                         e.preventDefault();
                     });
-
-                    // Add a royalty animation element to each slot
+                    // Добавляем элемент анимации роялти
                     const royaltyAnimation = document.createElement('div');
                     royaltyAnimation.classList.add('royalty-animation');
                     slot.appendChild(royaltyAnimation);
@@ -554,230 +548,67 @@
             });
         }
 
-        function handleCardSelection(element) {
-            console.log("Handling card selection:", element);
-            if (element.classList.contains('unavailable')) {
-                return;
-            }
-
-            if (element.dataset.rank) {
-                if (selectedRank === element.dataset.rank) {
-                    selectedRank = null;
-                    element.classList.remove('selected');
-                } else {
-                    document.querySelectorAll('[data-rank]').forEach(el => el.classList.remove('selected'));
-                    selectedRank = element.dataset.rank;
-                    element.classList.add('selected');
-                }
-            } else if (element.dataset.suit) {
-                if (selectedSuit === element.dataset.suit) {
-                    selectedSuit = null;
-                    element.classList.remove('selected');
-                } else {
-                    document.querySelectorAll('[data-suit]').forEach(el => el.classList.remove('selected'));
-                    selectedSuit = element.dataset.suit;
-                    element.classList.add('selected');
-                }
-            }
-
-            if (selectedRank && selectedSuit) {
-                const cardKey = `${selectedRank}${selectedSuit}`;
-                if (!unavailableCards.has(cardKey)) {
-                    const combinationArea = document.getElementById('combination-area');
-                    const emptySlot = combinationArea.querySelector('.combination-slot:not(.taken)');
-                    if (emptySlot) {
-                        const card = createCard({ rank: selectedRank, suit: selectedSuit });
-                        emptySlot.appendChild(card);
-                        unavailableCards.add(cardKey);
-                        emptySlot.classList.add('taken');
-
-                        selectedRank = null;
-                        selectedSuit = null;
-                        document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected'));
-                    }
-                }
-            }
-        }
-
-        function removeSelectedCards() {
-            console.log("Removing selected cards");
+        function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
-            combinationArea.querySelectorAll('.card').forEach(card => {
-                const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
-                // Only add to unavailableCards if it's NOT already on the board
-                if (!isCardOnBoard({rank: card.dataset.rank, suit: card.dataset.suit})) {
-                    unavailableCards.add(cardKey);
-                }
-                card.parentElement.classList.remove('taken');
-                card.remove();
-                updateSelectorItemAvailability(card.dataset.rank, card.dataset.suit);
-            });
+            combinationArea.innerHTML = '';
+            for (let i = 0; i < 17; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'combination-slot';
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', handleCombinationSlotDrop);
+                combinationArea.appendChild(slot);
+            }
         }
 
-        function resetTraining() {
-            console.log("Resetting training");
-            dealPhase = 0; // Reset dealPhase
-            setupTable();
-            resetCombinationArea();
-
-            unavailableCards.clear();
-            selectedRank = null;
-            selectedSuit = null;
-            document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected', 'unavailable'));
-            document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-            // Clear any displayed royalties
-            document.querySelectorAll('.royalty-animation').forEach(el => {
-                el.classList.remove('show');
-                el.textContent = '';
-            });
-            document.getElementById('total-royalty').textContent = '';
-
-
-            fetch('/update_state', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    selected_cards: [], // Explicitly initialize to empty array
-                    board: { top: [], middle: [], bottom: [] }, // Explicitly initialize to empty arrays
-                    discarded_cards: [], // Explicitly initialize to empty array
-                    ai_settings: {
-                        fantasyType: document.getElementById('fantasyType').value,
-                        fantasyMode: document.getElementById('fantasyMode').checked,
-                        aiTime: document.getElementById('aiTime').value,
-                        iterations: document.getElementById('iterations').value,
-                        stopThreshold: document.getElementById('stopThreshold').value,
-                        aiType: document.getElementById('aiType').value
-                    }
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                console.log("Game state reset successfully on server.");
-            })
-            .catch(error => {
-                console.error('Error resetting game state:', error);
-                alert('Произошла ошибка при сбросе состояния.');
-            });
+        function handleCombinationSlotDrop(e) {
+            e.preventDefault();
+            const cardData = JSON.parse(e.dataTransfer.getData('card'));
+            const cardKey = `${cardData.rank}${cardData.suit}`;
+            if (!unavailableCards.has(cardKey) && e.currentTarget.children.length === 0) {
+                const card = createCard(cardData);
+                e.currentTarget.appendChild(card);
+                unavailableCards.add(cardKey);
+                e.currentTarget.classList.add('taken');
+            }
         }
 
-        // Corrected getGameStateFromDOM
-        function getGameStateFromDOM() {
-            const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
-                rank: card.dataset.rank,
-                suit: card.dataset.suit
-            }));
-            console.log("Selected cards from DOM:", selectedCards);
-
-            const board = {
-                top: Array.from(document.querySelectorAll('#top-row .card-slot .card')).map(card => ({
-                    rank: card.dataset.rank,
-                    suit: card.dataset.suit
-                })),
-                middle: Array.from(document.querySelectorAll('#middle-row .card-slot .card')).map(card => ({
-                    rank: card.dataset.rank,
-                    suit: card.dataset.suit
-                })),
-                bottom: Array.from(document.querySelectorAll('#bottom-row .card-slot .card')).map(card => ({
-                    rank: card.dataset.rank,
-                    suit: card.dataset.suit
-                }))
-            };
-
-            const discardedCards = Array.from(unavailableCards).map(cardKey => {
-                const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
-                return { rank, suit };
-            });
-
-            console.log("Game state from DOM:", { selected_cards: selectedCards, board: board, discarded_cards: discardedCards });
-
-            return {
-                selected_cards: selectedCards,
-                board: board,
-                discarded_cards: discardedCards
-            };
-        }
-		
-		function isCardOnBoard(card) {
-			const board = getGameStateFromDOM().board;
-			for (const line in board) {
-				if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
-					return true;
-				}
-			}
-			return false;
-		}
-
-        function distributeCards() {
+        // Обновлённая функция distributeCards – теперь НЕ очищает полностью уже размещённые карты
+        async function distributeCards() {
             console.log("distributeCards() called");
-            const gameState = getGameStateFromDOM();
-            const numCards = gameState.selected_cards.length;
-            console.log("Current game state:", gameState);
-            console.log("Number of selected cards:", numCards);
-            console.log("dealPhase:", dealPhase);
-
-            // Always call the AI, regardless of dealPhase or cardsPlaced.
-            // The AI will handle the initial placement and subsequent moves.
+            const currentState = getGameStateFromDOM();
+            const numCards = currentState.selected_cards.length;
             if (numCards > 0) {
-                console.log("Calling AI to distribute cards");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
-			                    fantasyMode: document.getElementById('fantasyMode').checked,
+                    fantasyMode: document.getElementById('fantasyMode').checked,
                     aiTime: document.getElementById('aiTime').value,
                     iterations: document.getElementById('iterations').value,
                     stopThreshold: document.getElementById('stopThreshold').value,
                     aiType: document.getElementById('aiType').value
                 };
 
-                // Send ONLY the selected_cards, current board, discarded_cards, and ai_settings
                 const requestData = JSON.stringify({
-                    selected_cards: gameState.selected_cards, // Only send selected cards
-                    board: gameState.board, // Send the CORRECT board state
-                    discarded_cards: gameState.discarded_cards,
+                    selected_cards: currentState.selected_cards,
+                    board: currentState.board,
+                    discarded_cards: currentState.discarded_cards,
                     ai_settings: aiSettings
                 });
-                console.log("Sending data to /ai_move:", requestData);
-
-                fetch('/ai_move', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: requestData
-                })
-                .then(response => {
-                    console.log("AI move response status:", response.status);
-                    console.log("AI move response headers:", response.headers);
+                try {
+                    const response = await fetch('/ai_move', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: requestData
+                    });
                     if (!response.ok) {
-                        return response.text().then(text => {
-                            console.error(`HTTP error! status: ${response.status}, text: ${text}`);
-                            throw new Error(`HTTP error! status: ${response.status}, text: ${text}`);
-                        });
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("AI move response data:", data);
+                    const data = await response.json();
                     if (data.error) {
                         alert(data.error);
                         return;
                     }
-
-                    // Clear existing cards from the board *before* placing new ones
-                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
-                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-                    unavailableCards.clear();
-
-
-                    // Check for game over before placing cards
-                    if (data.message === 'Game over') {
-                        displayRoyalties(data.royalties);
-                        displayTotalRoyalty(data.total_royalty);
-                        alert('Игра окончена!  Роялти подсчитаны.');
-                        return;
-                    }
-
+                    // НЕ очищаем полностью все слоты – сохраняем ранее размещённые карты
+                    // Вместо этого рассчитываем свободные слоты через data.move.next_available_slots и добавляем новые карты
                     placeCardsOnBoard(data.move);
 
                     if (data.royalties) {
@@ -786,108 +617,58 @@
                     if (data.total_royalty !== undefined) {
                         displayTotalRoyalty(data.total_royalty);
                     }
-
-                    // Clear combination area after successful placement
+                    // После успешного хода очищаем только комбинационную область
                     resetCombinationArea();
-
-                    // Increment dealPhase after the AI move
                     dealPhase++;
-                    console.log("dealPhase incremented to:", dealPhase);
-
-                    // Clear selected_cards *AFTER* saving the game state
                     saveGameStateToSession();
-                    gameState.selected_cards = [];  // VERY IMPORTANT - Clear after placing
-
-
-                })
-                .catch(error => {
+                    // Очищаем состояние выбранных карт (но не сбрасываем всё игровое поле)
+                    currentState.selected_cards = [];
+                } catch (error) {
                     console.error('Error during AI move request:', error);
                     alert('Произошла ошибка при получении хода ИИ.');
-                });
-            }
-             else {
+                }
+            } else {
                 alert('Пожалуйста, выберите карты для добавления.');
             }
         }
 
-
-
-        function resetCombinationArea() {
-            const combinationArea = document.getElementById('combination-area');
-            combinationArea.innerHTML = ''; // Clear all slots
-
-            // Re-add the empty slots
-            for (let i = 0; i < 17; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'combination-slot';
-                slot.addEventListener('dragover', (e) => e.preventDefault());
-                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
-                combinationArea.appendChild(slot);
-            }
-        }
-
-        // Define the named function for the drop event
-        function handleCombinationSlotDrop(e) {
-            e.preventDefault();  // Prevent default behavior
-            const cardData = JSON.parse(e.dataTransfer.getData('card'));
-            const cardKey = `${cardData.rank}${cardData.suit}`;
-            // Allow dropping only in the combination area, and only if the slot is empty
-            if (!unavailableCards.has(cardKey) && e.currentTarget.children.length === 0) {
-                const card = createCard(cardData);
-                e.currentTarget.appendChild(card); // Append the card to the slot
-                unavailableCards.add(cardKey); // Mark the card as unavailable
-                e.currentTarget.classList.add('taken'); // Mark the slot as taken
-            }
-        }
-
-
+        // Функция placeCardsOnBoard обновлена так, чтобы добавлять карты только в свободные слоты
         function placeCardsOnBoard(moveData) {
-          console.log("placeCardsOnBoard called with moveData:", moveData);
-          const lines = ['top', 'middle', 'bottom'];
-          const nextSlots = moveData.next_available_slots;
-          console.log("nextSlots:", nextSlots);
-
-          lines.forEach(line => {
-              console.log(`Processing line: ${line}`);
-              const row = document.getElementById(`${line}-row`);
-              if (!row) {
-                  console.error(`Row element not found for line: ${line}`);
-                  return; // Skip to next line if row is not found
-              }
-              const slots = row.querySelectorAll('.card-slot');
-              console.log(`Number of slots found in ${line}-row: ${slots.length}`);
-              let slotIndex = nextSlots[line];
-              console.log(`Initial slotIndex for ${line}: ${slotIndex}`);
-
-              if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
-                  moveData[line].forEach((cardData, card_idx) => {
-                      if (!cardData) return;
-
-                      if (slotIndex >= slots.length || slotIndex < 0) {
-                          console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
-                          return; // Skip card if slotIndex is invalid
-                      }
-
-                      const slot = slots[slotIndex];
-                      if (!slot) {
-                          console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                          return;
-                      }
-
-                      console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
-                      const card = createCard(cardData);
-                      slot.appendChild(card);
-                      unavailableCards.add(`${cardData.rank}${cardData.suit}`);
-                      slot.classList.add('taken');
-                      slotIndex++;
-                      console.log(`slotIndex incremented to: ${slotIndex} after placing card ${cardData.rank}${cardData.suit}`);
-                  });
-              } else {
-                  console.warn(`No move data or slot data for line ${line}.`);
-              }
-          });
+            console.log("placeCardsOnBoard called with moveData:", moveData);
+            const lines = ['top', 'middle', 'bottom'];
+            const nextSlots = moveData.next_available_slots;
+            lines.forEach(line => {
+                const row = document.getElementById(`${line}-row`);
+                if (!row) {
+                    console.error(`Row element not found for line: ${line}`);
+                    return;
+                }
+                const slots = row.querySelectorAll('.card-slot');
+                // Используем полученный индекс свободного слота, не трогая уже занятые
+                let slotIndex = nextSlots[line];
+                if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
+                    moveData[line].forEach((cardData, card_idx) => {
+                        if (!cardData) return;
+                        // Если слот уже занят, пропускаем его
+                        while (slotIndex < slots.length && slots[slotIndex].children.length > 1) {
+                            slotIndex++;
+                        }
+                        if (slotIndex >= slots.length || slotIndex < 0) {
+                            console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
+                            return;
+                        }
+                        const slot = slots[slotIndex];
+                        const card = createCard(cardData);
+                        slot.appendChild(card);
+                        unavailableCards.add(`${cardData.rank}${cardData.suit}`);
+                        slot.classList.add('taken');
+                        slotIndex++;
+                    });
+                } else {
+                    console.warn(`No move data or slot data for line ${line}.`);
+                }
+            });
         }
-
 
         function displayRoyalties(royalties) {
             console.log("Displaying royalties:", royalties);
@@ -897,22 +678,17 @@
                 if (royaltyValue > 0) {
                     const row = document.getElementById(`${line}-row`);
                     const slots = row.querySelectorAll('.card-slot');
-                    const lastSlot = slots[slots.length - 1]; // Get the last slot
-
+                    const lastSlot = slots[slots.length - 1];
                     const royaltyAnimation = lastSlot.querySelector('.royalty-animation');
                     if (royaltyAnimation) {
                         royaltyAnimation.textContent = `+${royaltyValue}`;
-                        // Remove the 'show' class first to reset the animation
                         royaltyAnimation.classList.remove('show');
-                        // Use requestAnimationFrame to ensure the removal takes effect
                         requestAnimationFrame(() => {
                             royaltyAnimation.classList.add('show');
                         });
-
-                        // Hide the animation after a timeout
                         setTimeout(() => {
                             royaltyAnimation.classList.remove('show');
-                        }, 3000); // Increased timeout for visibility
+                        }, 3000);
                     }
                 }
             });
@@ -921,12 +697,47 @@
         function displayTotalRoyalty(totalRoyalty) {
             console.log("Displaying total royalty:", totalRoyalty);
             const totalRoyaltyElement = document.getElementById('total-royalty');
-            totalRoyaltyElement.textContent = `Total Royalty: +${totalRoyalty}`; // Add "+" sign
+            totalRoyaltyElement.textContent = `Total Royalty: +${totalRoyalty}`;
         }
 
+        function getGameStateFromDOM() {
+            const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
+                rank: card.dataset.rank,
+                suit: card.dataset.suit
+            }));
+            const board = {
+                top: Array.from(document.querySelectorAll('#top-row .card-slot')).map(slot =>
+                    slot.children[0] ? {
+                        rank: slot.children[0].dataset.rank,
+                        suit: slot.children[0].dataset.suit
+                    } : ''
+                ),
+                middle: Array.from(document.querySelectorAll('#middle-row .card-slot')).map(slot =>
+                    slot.children[0] ? {
+                        rank: slot.children[0].dataset.rank,
+                        suit: slot.children[0].dataset.suit
+                    } : ''
+                ),
+                bottom: Array.from(document.querySelectorAll('#bottom-row .card-slot')).map(slot =>
+                    slot.children[0] ? {
+                        rank: slot.children[0].dataset.rank,
+                        suit: slot.children[0].dataset.suit
+                    } : ''
+                )
+            };
+            const discardedCards = Array.from(unavailableCards).map(cardKey => {
+                const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
+                return { rank, suit };
+            });
+            return {
+                selected_cards: selectedCards,
+                board: board,
+                discarded_cards: discardedCards
+            };
+        }
 
         function saveGameStateToSession() {
-            const gameState = getGameStateFromDOM();
+            const state = getGameStateFromDOM();
             const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
                 fantasyMode: document.getElementById('fantasyMode').checked,
@@ -935,13 +746,11 @@
                 stopThreshold: document.getElementById('stopThreshold').value,
                 aiType: document.getElementById('aiType').value
             };
-
-            console.log("Saving game state to session:", { ...gameState, ai_settings: aiSettings });
-
+            console.log("Saving game state to session:", { ...state, ai_settings: aiSettings });
             fetch('/update_state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...gameState, ai_settings: aiSettings })
+                body: JSON.stringify({ ...state, ai_settings: aiSettings })
             })
             .then(response => {
                 if (!response.ok) {
@@ -963,9 +772,7 @@
                 stopThreshold: document.getElementById('stopThreshold').value,
                 aiType: document.getElementById('aiType').value
             };
-
             console.log("Saving settings:", aiSettings);
-
             fetch('/update_state', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -997,65 +804,26 @@
             });
         }
 
-        function removeCardFromUnavailable(cardKey) {
-            console.log("Removing card from unavailable:", cardKey);
-            if (unavailableCards.has(cardKey)) {
-                unavailableCards.delete(cardKey);
-                const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
-                updateSelectorItemAvailability(rank, suit);
-            }
-        }
-		function isCardOnBoard(card) {
-			const board = getGameStateFromDOM().board;
-			for (const line in board) {
-				if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
-					return true;
-				}
-			}
-			return false;
-		}
-
-        function updateSelectorItemAvailability(rank, suit) {
-            console.log("Updating selector item availability for:", rank, suit);
-            let rankCount = document.querySelectorAll(`.card[data-rank="${rank}"]`).length;
-            let suitCount = document.querySelectorAll(`.card[data-suit="${suit}"]`).length;
-
-            document.querySelectorAll('.selector-item').forEach(item => {
-                if (item.dataset.rank === rank) {
-                    item.classList.toggle('unavailable', rankCount === 0 && !unavailableCards.has(`${rank}${suit}`));
-                }
-                if (item.dataset.suit === suit) {
-                    item.classList.toggle('unavailable', suitCount === 0 && !unavailableCards.has(`${rank}${suit}`));
-                }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', () => {
             setupTable();
-
-           resetCombinationArea();
-
+            resetCombinationArea();
             const savedFullscreen = localStorage.getItem('isFullscreen') === 'true';
             if (savedFullscreen) {
                 toggleFullScreen();
             }
-
             document.querySelectorAll('.selector-item').forEach(item => {
                 item.addEventListener('click', () => handleCardSelection(item));
             });
-
             const aiTimeSlider = document.getElementById('aiTime');
             const aiTimeValue = document.getElementById('aiTimeValue');
             aiTimeSlider.addEventListener('input', (e) => {
                 aiTimeValue.textContent = e.target.value;
             });
-
             const iterationsSlider = document.getElementById('iterations');
             const iterationsValue = document.getElementById('iterationsValue');
             iterationsSlider.addEventListener('input', (e) => {
                 iterationsValue.textContent = e.target.value;
             });
-
             const stopThresholdSlider = document.getElementById('stopThreshold');
             const stopThresholdValue = document.getElementById('stopThresholdValue');
             stopThresholdSlider.addEventListener('input', (e) => {
