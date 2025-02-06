@@ -140,7 +140,7 @@ def update_state():
 
         # Update other keys (ai_settings)
         if 'ai_settings' in game_state:
-            session['game_state']['ai_settings'] = game_state['ai_settings']
+            session['game_state'][key] = game_state['ai_settings']
 
         session.modified = True
 
@@ -251,69 +251,81 @@ def ai_move():
                 next_available_slots[line] += 1
         app.logger.info(f"Next available slots BEFORE AI call: {next_available_slots}")
 
-    except (KeyError, TypeError, ValueError) as e:
-        app.logger.error(f"Error in ai_move during game state creation: {e}")
-        return jsonify({'error': f"Invalid game state data format: {e}"}), 400
+    except Exception as e:
+        app.logger.exception("Exception during game state setup:")  # Log the full traceback
+        return jsonify({'error': f"Error during game state setup: {e}"}), 500
 
     timeout_event = Event()
     result = {'move': None}
 
     # Choose the appropriate agent based on ai_type
-    if ai_type == 'mccfr':
-        if cfr_agent is None:
-            app.logger.error("Error: MCCFR agent not initialized")
-            return jsonify({'error': 'MCCFR agent not initialized'}), 500
-        ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
-    else:  # ai_type == 'random'
-        ai_thread = Thread(target=random_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+    try:
+        if ai_type == 'mccfr':
+            if cfr_agent is None:
+                app.logger.error("Error: MCCFR agent not initialized")
+                return jsonify({'error': 'MCCFR agent not initialized'}), 500
+            ai_thread = Thread(target=cfr_agent.get_move, args=(game_state, num_cards, timeout_event, result))
+        else:  # ai_type == 'random'
+            ai_thread = Thread(target=random_agent.get_move, args=(game_state, num_cards, timeout_event, result))
 
-    ai_thread.start()
-    ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
+        ai_thread.start()
+        ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
 
-    if ai_thread.is_alive():
-        timeout_event.set()
-        ai_thread.join()
-        app.logger.warning("AI move timed out")
-        return jsonify({'error': 'AI move timed out'}), 504
+        if ai_thread.is_alive():
+            timeout_event.set()
+            ai_thread.join()
+            app.logger.warning("AI move timed out")
+            return jsonify({'error': 'AI move timed out'}), 504
+    except Exception as e:
+        app.logger.exception("Exception during AI agent selection/execution:")
+        return jsonify({'error': f"Error during AI agent selection/execution: {e}"}), 500
 
-    move = result['move']
-    if move is None or 'error' in move:
-        app.logger.error(f"AI move error: {move.get('error', 'Unknown error')}")
-        return jsonify({'error': move.get('error', 'Unknown error')}), 500
+    try:
+        move = result['move']
+        if move is None or 'error' in move:
+            app.logger.error(f"AI move error: {move.get('error', 'Unknown error')}")
+            return jsonify({'error': move.get('error', 'Unknown error')}), 500
+    except Exception as e:
+        app.logger.exception("Exception while getting move from result:")
+        return jsonify({'error': f"Error getting move from result: {e}"}), 500
 
     # --- Serialization and Response ---
-    serialized_move = serialize_move(move, next_available_slots)
-    app.logger.info(f"Serialized move: {serialized_move}")
+    try:
+        serialized_move = serialize_move(move, next_available_slots)
+        app.logger.info(f"Serialized move: {serialized_move}")
 
-    royalties = game_state.calculate_royalties()
-    total_royalty = sum(royalties.values())
+        royalties = game_state.calculate_royalties()
+        total_royalty = sum(royalties.values())
 
-    if move:
-        app.logger.info("Updating game state in session with AI move")
-        for line in ['top', 'middle', 'bottom']:
-            if line in move:
-                placed_cards = move.get(line, [])
-                slot_index = next_available_slots[line]
-                for card in placed_cards:
-                    serialized_card = serialize_card(card)
-                    if slot_index < len(session['game_state']['board'][line]):
-                        session['game_state']['board'][line][slot_index] = serialized_card
-                        slot_index += 1
-                    else:
-                        app.logger.warning(f"No slot for {serialized_card} on {line}")
+        if move:
+            app.logger.info("Updating game state in session with AI move")
+            for line in ['top', 'middle', 'bottom']:
+                if line in move:
+                    placed_cards = move.get(line, [])
+                    slot_index = next_available_slots[line]
+                    for card in placed_cards:
+                        serialized_card = serialize_card(card)
+                        if slot_index < len(session['game_state']['board'][line]):
+                            session['game_state']['board'][line][slot_index] = serialized_card
+                            slot_index += 1
+                        else:
+                            app.logger.warning(f"No slot for {serialized_card} on {line}")
 
-        discarded_card = move.get('discarded')
-        if discarded_card:
-            session['game_state']['discarded_cards'].append(serialize_card(discarded_card))
+            discarded_card = move.get('discarded')
+            if discarded_card:
+                session['game_state']['discarded_cards'].append(serialize_card(discarded_card))
 
-        session.modified = True
+            session.modified = True
 
-    app.logger.info(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
-    return jsonify({
-        'move': serialized_move,
-        'royalties': royalties,
-        'total_royalty': total_royalty
-    })
+        app.logger.info(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
+        return jsonify({
+            'move': serialized_move,
+            'royalties': royalties,
+            'total_royalty': total_royalty
+        })
+    except Exception as e:
+        app.logger.exception("Exception during move serialization/update/response:")
+        return jsonify({'error': f"Error during move serialization/update/response: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
