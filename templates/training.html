@@ -643,9 +643,9 @@
             const fragment = document.createDocumentFragment();
 
             setupTable();
-            resetCombinationArea(); // Use the new function
+                        resetCombinationArea();
 
-            unavailableCards.clear(); // Очищаем unavailableCards
+            unavailableCards.clear();
             selectedRank = null;
             selectedSuit = null;
             document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected', 'unavailable'));
@@ -805,6 +805,9 @@
                     // Clear combination area after successful placement
                     resetCombinationArea();
 
+                    // --- FIX: Clear selected_cards ---
+                    gameState.selected_cards = []; // VERY IMPORTANT
+
                     saveGameStateToSession();
                 })
                 .catch(error => {
@@ -874,7 +877,7 @@
                           return; // Skip card if slot is null
                       }
 
-                                            console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
+                      console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
                       const card = createCard(cardData);
                       slot.appendChild(card);
                       unavailableCards.add(`${cardData.rank}${cardData.suit}`);
