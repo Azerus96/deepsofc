@@ -147,10 +147,6 @@ def update_state():
         app.logger.info(f"Updated game state in session: {session['game_state']}")
         return jsonify({'status': 'success'})
 
-    except Exception as e:
-        app.logger.error(f"Error in update_state: {e}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
@@ -230,7 +226,7 @@ def ai_move():
             while (next_available_slots[line] < len(session['game_state']['board'][line]) and
                    session['game_state']['board'][line][next_available_slots[line]] is not None):
                 next_available_slots[line] += 1
-        app.logger.info(f"Next available slots: {next_available_slots}")
+        app.logger.info(f"Next available slots BEFORE AI call: {next_available_slots}") # LOGGING ADDED
         # --------------------------------------------------------
 
     except (KeyError, TypeError, ValueError) as e:
@@ -301,8 +297,6 @@ def ai_move():
                         slot_index += 1 # Increment for the NEXT card
                     else:
                         app.logger.warning(f"No slot for {serialized_card} on {line}")
-                next_available_slots[line] = slot_index # Update for next time
-
 
         discarded_card = move.get('discarded')
         if discarded_card:
