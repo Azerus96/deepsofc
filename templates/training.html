@@ -12,7 +12,7 @@
             background-color: #f0f0f0;
             overflow-x: hidden;
             min-height: 100vh;
-            padding-bottom: 150px;
+            padding-bottom: 150px; /* Space for controls */
             box-sizing: border-box;
         }
 
@@ -23,8 +23,8 @@
             margin-bottom: 20px;
             position: sticky;
             top: 0;
-            z-index: 1001;
-            background: #f0f0f0;
+            z-index: 1001; /* Above other elements */
+            background: #f0f0f0; /* Match body background */
             padding: 10px;
         }
 
@@ -702,12 +702,12 @@
 		function isCardOnBoard(card) {
 			const board = getGameStateFromDOM().board;
 			for (const line in board) {
-				                if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
-                    return true;
-                }
-            }
-            return false;
-        }
+				if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
+					return true;
+				}
+			}
+			return false;
+		}
 
         function distributeCards() {
             console.log("distributeCards() called");
@@ -765,10 +765,9 @@
                     }
 
                     // Clear existing cards from the board *before* placing new ones
-                    // No need to clear the board here, as placeCardsOnBoard will handle it
-                    // document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
-                    // document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-                    // unavailableCards.clear(); // Don't clear here, placeCardsOnBoard will handle
+                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
+                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+                    unavailableCards.clear();
 
                     // Check for game over before placing cards
                     if (data.message === 'Game over') {
@@ -811,7 +810,6 @@
         }
 
 
-
         function resetCombinationArea() {
             const combinationArea = document.getElementById('combination-area');
             combinationArea.innerHTML = ''; // Clear all slots
@@ -821,7 +819,7 @@
                 const slot = document.createElement('div');
                 slot.className = 'combination-slot';
                 slot.addEventListener('dragover', (e) => e.preventDefault());
-                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
+                slot.addEventListener('drop', handleCombinationSlotDrop);
                 combinationArea.appendChild(slot);
             }
         }
@@ -839,7 +837,6 @@
                 e.currentTarget.classList.add('taken'); // Mark the slot as taken
             }
         }
-
 
         function placeCardsOnBoard(moveData) {
           console.log("placeCardsOnBoard called with moveData:", moveData);
@@ -861,7 +858,7 @@
 
               if (moveData && moveData[line] && nextSlots && nextSlots[line] !== undefined) {
                   moveData[line].forEach((cardData, card_idx) => {
-                      if (!cardData) return;
+                                            if (!cardData) return;
 
                       if (slotIndex >= slots.length || slotIndex < 0) {
                           console.error(`slotIndex out of bounds for ${line} at card index ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`);
@@ -871,7 +868,7 @@
                       const slot = slots[slotIndex];
                       if (!slot) {
                           console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                          return;
+                          return; // Skip card if slot is null
                       }
 
                       console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
@@ -1004,6 +1001,16 @@
                 const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
                 updateSelectorItemAvailability(rank, suit);
             }
+        }
+		// Helper function to check if a card is already on the board
+        function isCardOnBoard(card) {
+          const board = getGameStateFromDOM().board;
+          for (const line in board) {
+            if (board[line].some(c => c.rank === card.rank && c.suit === card.suit)) {
+              return true;
+            }
+          }
+          return false;
         }
 
         function updateSelectorItemAvailability(rank, suit) {
