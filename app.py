@@ -120,7 +120,7 @@ def update_state():
 
         # Use session.get with a default empty dictionary
         session['game_state'] = session.get('game_state', {})
-        app.logger.info(f"Session BEFORE update: {session['game_state']}") # ADDED LOGGING
+        app.logger.info(f"Session BEFORE update: {session['game_state']}")
 
         # Update board - APPEND, don't replace!
         if 'board' in game_state:
@@ -138,7 +138,7 @@ def update_state():
         if 'ai_settings' in game_state:
             session['game_state']['ai_settings'] = game_state['ai_settings']
 
-        session.modified = True
+        # session.modified = True  # REMOVE THIS LINE. Let Flask handle it.
 
         # Reinitialize AI agent if settings have changed
         if game_state.get('ai_settings') != session.get('previous_ai_settings'):
@@ -248,7 +248,7 @@ def ai_move():
                 next_available_slots[line] += 1
         app.logger.info(f"Next available slots BEFORE AI call: {next_available_slots}")
 
-    except Exception as e:
+    except (KeyError, TypeError, ValueError) as e:
         app.logger.exception("Exception during game state setup:")  # Log the full traceback
         return jsonify({'error': f"Error during game state setup: {e}"}), 500
 
@@ -299,12 +299,12 @@ def ai_move():
             for line in ['top', 'middle', 'bottom']:
                 if line in move:
                     placed_cards = move.get(line, [])
-                    slot_index = next_available_slots[line]
+                    slot_index = next_available_slots[line]  # Get from pre-calculated slots
                     for card in placed_cards:
                         serialized_card = serialize_card(card)
                         if slot_index < len(session['game_state']['board'][line]):
                             session['game_state']['board'][line][slot_index] = serialized_card
-                            slot_index += 1
+                            slot_index += 1 # Increment for the NEXT card
                         else:
                             app.logger.warning(f"No slot for {serialized_card} on {line}")
 
@@ -312,7 +312,7 @@ def ai_move():
             if discarded_card:
                 session['game_state']['discarded_cards'].append(serialize_card(discarded_card))
 
-            session.modified = True
+        # No need to set session.modified = True, flask will do it.
 
         app.logger.info(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
         return jsonify({
