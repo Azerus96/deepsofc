@@ -3,14 +3,14 @@ import os
 import ai_engine
 from ai_engine import CFRAgent, RandomAgent, Card
 import utils
-import github_utils
+import github_utils  # Import the github_utils module
 import time
 import json
 from threading import Thread, Event
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO)  # Set the logging level to INFO
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -121,15 +121,26 @@ def update_state():
         # Use session.get with a default empty dictionary
         session['game_state'] = session.get('game_state', {})
 
-        # Update selected_cards, board, and discarded_cards (KEEP AS DICTIONARIES)
-        for key in ['selected_cards', 'board', 'discarded_cards']:
-            if key in game_state:
-                session['game_state'][key] = game_state[key]
+        # Update selected_cards
+        if 'selected_cards' in game_state:
+            session['game_state']['selected_cards'] = game_state['selected_cards']
+            app.logger.info(f"Updated selected_cards: {session['game_state']['selected_cards']}")
+
+        # Update board - APPEND, don't replace!
+        if 'board' in game_state:
+            for line in ['top', 'middle', 'bottom']:
+                if line in game_state['board']:
+                    # Extend the existing list with the new cards
+                    session['game_state']['board'].setdefault(line, []).extend(game_state['board'][line])
+            app.logger.info(f"Updated board: {session['game_state']['board']}")
+
+        # Update discarded_cards
+        if 'discarded_cards' in game_state:
+            session['game_state']['discarded_cards'] = game_state['discarded_cards']
 
         # Update other keys (ai_settings)
-        for key in ['ai_settings']:
-            if key in game_state:
-                session['game_state'][key] = game_state[key]
+        if 'ai_settings' in game_state:
+            session['game_state']['ai_settings'] = game_state['ai_settings']
 
         session.modified = True
 
