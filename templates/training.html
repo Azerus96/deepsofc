@@ -662,9 +662,9 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    selected_cards: [],
-                    board: { top: [], middle: [], bottom: [] },
-                    discarded_cards: [],
+                    selected_cards: [], // Explicitly initialize to empty array
+                    board: { top: [], middle: [], bottom: [] }, // Explicitly initialize to empty arrays
+                    discarded_cards: [], // Explicitly initialize to empty array
                     ai_settings: {
                         fantasyType: document.getElementById('fantasyType').value,
                         fantasyMode: document.getElementById('fantasyMode').checked,
@@ -723,8 +723,6 @@
                 discarded_cards: discardedCards
             };
         }
-
-
         function distributeCards() {
             console.log("distributeCards() called");
             const gameState = getGameStateFromDOM();
@@ -743,7 +741,7 @@
 
             // Call the AI if cards have been placed on the board OR if there are cards
             // in the 17-slot area *after* the initial placement.
-            if (cardsPlaced || (numCards > 0 && dealPhase > 0)) { // Added dealPhase check
+            if (cardsPlaced || (numCards > 0 && dealPhase > 0)) {
                 console.log("Calling AI to distribute cards");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
@@ -813,14 +811,15 @@
                     // Clear combination area after successful placement
                     resetCombinationArea();
 
-                    // Clear selected_cards
-                    gameState.selected_cards = [];  // VERY IMPORTANT - Clear after placing
-
                     // Increment dealPhase after the AI move
                     dealPhase++;
                     console.log("dealPhase incremented to:", dealPhase);
 
+                    // Clear selected_cards *AFTER* saving the game state
                     saveGameStateToSession();
+                    gameState.selected_cards = [];  // VERY IMPORTANT - Clear after placing
+
+
                 })
                 .catch(error => {
                     console.error('Error during AI move request:', error);
@@ -888,9 +887,9 @@
 
                       const slot = slots[slotIndex];
                       if (!slot) {
-                          console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
-                          return
-                                                }
+                                                    console.error(`Slot element is null for ${line} at index ${slotIndex}, card index ${card_idx}`);
+                          return; // Skip card if slot is null
+                      }
 
                       console.log(`Placing card ${cardData.rank}${cardData.suit} in ${line}-row slot at index ${slotIndex}, card index ${card_idx}`);
                       const card = createCard(cardData);
