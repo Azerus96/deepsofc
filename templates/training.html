@@ -482,7 +482,7 @@
         }
 
         function createCard(cardData) {
-            console.log("createCard() - Начало. cardData:", cardData); // ЛОГ: Начало функции
+            console.log("createCard() - Начало. cardData:", cardData);
             const card = document.createElement('div');
             card.className = 'card';
             card.dataset.rank = cardData.rank;
@@ -521,12 +521,12 @@
                 card.style.opacity = '1';
             });
 
-            console.log("createCard() - Конец. Создана карта:", card); // ЛОГ: Конец функции
+            console.log("createCard() - Конец. Создана карта:", card);
             return card;
         }
 
         function setupTable() {
-            console.log("setupTable() - Начало"); // ЛОГ: Начало функции
+            console.log("setupTable() - Начало");
             const rows = ['top', 'middle', 'bottom'];
             const numCards = [3, 5, 5];
 
@@ -553,13 +553,13 @@
                     rowElement.appendChild(slot);
                 }
             });
-            console.log("setupTable() - Конец. Таблица настроена."); // ЛОГ: Конец функции
+            console.log("setupTable() - Конец. Таблица настроена.");
         }
 
         function handleCardSelection(element) {
-            console.log("handleCardSelection() - Начало. element:", element); // ЛОГ: Начало функции
+            console.log("handleCardSelection() - Начало. element:", element);
             if (element.classList.contains('unavailable')) {
-                console.log("handleCardSelection() - Карта недоступна, выход."); // ЛОГ: Карта недоступна
+                console.log("handleCardSelection() - Карта недоступна, выход.");
                 return;
             }
 
@@ -567,23 +567,23 @@
                 if (selectedRank === element.dataset.rank) {
                     selectedRank = null;
                     element.classList.remove('selected');
-                    console.log("handleCardSelection() - Ранг отменен:", element.dataset.rank); // ЛОГ: Ранг отменен
+                    console.log("handleCardSelection() - Ранг отменен:", element.dataset.rank);
                 } else {
                     document.querySelectorAll('[data-rank]').forEach(el => el.classList.remove('selected'));
                     selectedRank = element.dataset.rank;
                     element.classList.add('selected');
-                    console.log("handleCardSelection() - Ранг выбран:", element.dataset.rank); // ЛОГ: Ранг выбран
+                    console.log("handleCardSelection() - Ранг выбран:", element.dataset.rank);
                 }
             } else if (element.dataset.suit) {
                 if (selectedSuit === element.dataset.suit) {
                     selectedSuit = null;
                     element.classList.remove('selected');
-                    console.log("handleCardSelection() - Масть отменена:", element.dataset.suit); // ЛОГ: Масть отменена
+                    console.log("handleCardSelection() - Масть отменена:", element.dataset.suit);
                 } else {
                     document.querySelectorAll('[data-suit]').forEach(el => el.classList.remove('selected'));
                     selectedSuit = element.dataset.suit;
                     element.classList.add('selected');
-                    console.log("handleCardSelection() - Масть выбрана:", element.dataset.suit); // ЛОГ: Масть выбрана
+                    console.log("handleCardSelection() - Масть выбрана:", element.dataset.suit);
                 }
             }
 
@@ -601,15 +601,15 @@
                         selectedRank = null;
                         selectedSuit = null;
                         document.querySelectorAll('.selector-item').forEach(el => el.classList.remove('selected'));
-                        console.log("handleCardSelection() - Карта добавлена в комбинацию:", cardKey); // ЛОГ: Карта добавлена
+                        console.log("handleCardSelection() - Карта добавлена в комбинацию:", cardKey);
                     }
                 }
             }
-            console.log("handleCardSelection() - Конец."); // ЛОГ: Конец функции
+            console.log("handleCardSelection() - Конец.");
         }
 
         function removeSelectedCards() {
-            console.log("removeSelectedCards() - Начало"); // ЛОГ: Начало функции
+            console.log("removeSelectedCards() - Начало");
             const combinationArea = document.getElementById('combination-area');
             combinationArea.querySelectorAll('.card').forEach(card => {
                 const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
@@ -621,11 +621,11 @@
                 card.remove();
                 updateSelectorItemAvailability(card.dataset.rank, card.dataset.suit);
             });
-            console.log("removeSelectedCards() - Конец. Карты из комбинации удалены."); // ЛОГ: Конец функции
+            console.log("removeSelectedCards() - Конец. Карты из комбинации удалены.");
         }
 
         function resetTraining() {
-            console.log("resetTraining() - Начало"); // ЛОГ: Начало функции
+            console.log("resetTraining() - Начало");
             dealPhase = 0; // Reset dealPhase
             setupTable();
             resetCombinationArea();
@@ -664,13 +664,13 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                console.log("resetTraining() - Сервер: Состояние игры успешно сброшено."); // ЛОГ: Серверный ответ
+                console.log("resetTraining() - Сервер: Состояние игры успешно сброшено.");
             })
             .catch(error => {
-                console.error('resetTraining() - Ошибка сброса состояния игры:', error); // ЛОГ: Ошибка
+                console.error('resetTraining() - Ошибка сброса состояния игры:', error);
                 alert('Произошла ошибка при сбросе состояния.');
             });
-            console.log("resetTraining() - Конец. Тренировка сброшена."); // ЛОГ: Конец функции
+            console.log("resetTraining() - Конец. Тренировка сброшена.");
         }
 
         // Corrected getGameStateFromDOM
@@ -723,142 +723,6 @@
 			}
 			return false;
 		}
-
-        function distributeCards() {
-            console.log("distributeCards() - Начало"); // ЛОГ: Начало функции
-            const gameState = getGameStateFromDOM();
-            const numCards = gameState.selected_cards.length;
-            console.log("distributeCards() - Текущее состояние игры:", gameState); // ЛОГ: Состояние игры
-            console.log("distributeCards() - Количество выбранных карт:", numCards); // ЛОГ: Кол-во карт
-            console.log("distributeCards() - dealPhase:", dealPhase); // ЛОГ: dealPhase
-
-            // Always call the AI, regardless of dealPhase or cardsPlaced.
-            // The AI will handle the initial placement and subsequent moves.
-            if (numCards > 0) {
-                console.log("distributeCards() - Вызов ИИ для распределения карт"); // ЛОГ: Вызов ИИ
-                const aiSettings = {
-                    fantasyType: document.getElementById('fantasyType').value,
-			                    fantasyMode: document.getElementById('fantasyMode').checked,
-                    aiTime: document.getElementById('aiTime').value,
-                    iterations: document.getElementById('iterations').value,
-                    stopThreshold: document.getElementById('stopThreshold').value,
-                    aiType: document.getElementById('aiType').value
-                };
-
-                // Send ONLY the selected_cards, current board, discarded_cards, and ai_settings
-                const requestData = JSON.stringify({
-                    selected_cards: gameState.selected_cards, // Only send selected cards
-                    board: gameState.board, // Send the CORRECT board state
-                    discarded_cards: gameState.discarded_cards,
-                    ai_settings: aiSettings
-                });
-                console.log("distributeCards() - Отправка данных на /ai_move:", requestData); // ЛОГ: Данные запроса
-
-                fetch('/ai_move', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: requestData
-                })
-                .then(response => {
-                    console.log("distributeCards() - Ответ сервера AI move статус:", response.status); // ЛОГ: Статус ответа
-                    console.log("distributeCards() - Ответ сервера AI move заголовки:", response.headers); // ЛОГ: Заголовки ответа
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            console.error(`distributeCards() - HTTP ошибка! статус: ${response.status}, текст: ${text}`); // ЛОГ: HTTP ошибка
-                            throw new Error(`HTTP error! status: ${response.status}, text: ${text}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("distributeCards() - Ответ сервера AI move данные:", data); // ЛОГ: Данные ответа
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
-
-                    // Clear existing cards from the board *before* placing new ones
-                    console.log("distributeCards() - Очистка существующих карт с доски перед размещением новых"); // ЛОГ: Очистка доски
-                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
-                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
-                    unavailableCards.clear();
-
-
-                    // Check for game over before placing cards
-                    if (data.message === 'Game over') {
-                        displayRoyalties(data.royalties);
-                        displayTotalRoyalty(data.total_royalty);
-                        alert('Игра окончена!  Роялти подсчитаны.');
-                        return;
-                    }
-
-                    placeCardsOnBoard(data.move);
-
-                    if (data.royalties) {
-                        displayRoyalties(data.royalties);
-                    }
-                    if (data.total_royalty !== undefined) {
-                        displayTotalRoyalty(data.total_royalty);
-                    }
-
-                    // Clear combination area after successful placement
-                    resetCombinationArea();
-
-                    // Increment dealPhase after the AI move
-                    dealPhase++;
-                    console.log("distributeCards() - dealPhase увеличен до:", dealPhase); // ЛОГ: Новый dealPhase
-
-                    // Clear selected_cards *AFTER* saving the game state
-                    saveGameStateToSession();
-                    gameState.selected_cards = [];  // VERY IMPORTANT - Clear after placing
-
-
-                })
-                .catch(error => {
-                    console.error('distributeCards() - Ошибка во время запроса хода ИИ:', error); // ЛОГ: Ошибка запроса
-                    alert('Произошла ошибка при получении хода ИИ.');
-                });
-            }
-             else {
-                alert('Пожалуйста, выберите карты для добавления.');
-            }
-            console.log("distributeCards() - Конец."); // ЛОГ: Конец функции
-        }
-
-
-
-        function resetCombinationArea() {
-            console.log("resetCombinationArea() - Начало"); // ЛОГ: Начало функции
-            const combinationArea = document.getElementById('combination-area');
-            combinationArea.innerHTML = ''; // Clear all slots
-
-            // Re-add the empty slots
-            for (let i = 0; i < 17; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'combination-slot';
-                slot.addEventListener('dragover', (e) => e.preventDefault());
-                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
-                combinationArea.appendChild(slot);
-            }
-            console.log("resetCombinationArea() - Конец. Область комбинаций сброшена."); // ЛОГ: Конец функции
-        }
-
-        // Define the named function for the drop event
-        function handleCombinationSlotDrop(e) {
-            e.preventDefault();  // Prevent default behavior
-            const cardData = JSON.parse(e.dataTransfer.getData('card'));
-            const cardKey = `${cardData.rank}${cardData.suit}`;
-            // Allow dropping only in the combination area, and only if the slot is empty
-            if (!unavailableCards.has(cardKey) && e.currentTarget.children.length === 0) {
-                const card = createCard(cardData);
-                e.currentTarget.appendChild(card); // Append the card to the slot
-                unavailableCards.add(cardKey); // Mark the card as unavailable
-                e.currentTarget.classList.add('taken'); // Mark the slot as taken
-            }
-        }
-
 
         function placeCardsOnBoard(moveData) {
           console.log("placeCardsOnBoard() - Начало. moveData:", moveData); // ЛОГ: Начало функции, данные хода
@@ -914,8 +778,143 @@
         }
 
 
+        function distributeCards() {
+            console.log("distributeCards() - Начало"); // ЛОГ: Начало функции
+            const gameState = getGameStateFromDOM();
+            const numCards = gameState.selected_cards.length;
+            console.log("distributeCards() - Текущее состояние игры (getGameStateFromDOM):", gameState); // ЛОГ: Состояние игры
+            console.log("distributeCards() - Количество выбранных карт:", numCards); // ЛОГ: Кол-во карт
+            console.log("distributeCards() - dealPhase:", dealPhase); // ЛОГ: dealPhase
+
+            // Always call the AI, regardless of dealPhase or cardsPlaced.
+            // The AI will handle the initial placement and subsequent moves.
+            if (numCards > 0) {
+                console.log("distributeCards() - Вызов ИИ для распределения карт"); // ЛОГ: Вызов ИИ
+                const aiSettings = {
+                    fantasyType: document.getElementById('fantasyType').value,
+                    fantasyMode: document.getElementById('fantasyMode').checked,
+                    aiTime: document.getElementById('aiTime').value,
+                    iterations: document.getElementById('iterations').value,
+                    stopThreshold: document.getElementById('stopThreshold').value,
+                    aiType: document.getElementById('aiType').value
+                };
+
+                // Send ONLY the selected_cards, current board, discarded_cards, and ai_settings
+                const requestData = JSON.stringify({
+                    selected_cards: gameState.selected_cards, // Only send selected cards
+                    board: gameState.board, // Send the CORRECT board state
+                    discarded_cards: gameState.discarded_cards,
+                    ai_settings: aiSettings
+                });
+                console.log("distributeCards() - Отправка данных на /ai_move:", requestData); // ЛОГ: Данные запроса
+
+                fetch('/ai_move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: requestData
+                })
+                .then(response => {
+                    console.log("distributeCards() - Ответ сервера AI move статус:", response.status); // ЛОГ: Статус ответа
+                    console.log("distributeCards() - Ответ сервера AI move заголовки:", response.headers); // ЛОГ: Заголовки ответа
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            console.error(`distributeCards() - HTTP ошибка! статус: ${response.status}, текст: ${text}`); // ЛОГ: HTTP ошибка
+                            throw new Error(`HTTP error! status: ${response.status}, text: ${text}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("distributeCards() - Ответ сервера AI move данные:", data); // ЛОГ: Данные ответа
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+
+                    // Clear existing cards from the board *before* placing new ones
+                    console.log("distributeCards() - Очистка существующих карт с доски перед размещением новых"); // ЛОГ: Очистка доски
+                    document.querySelectorAll('.card-slot .card').forEach(card => card.remove());
+                    document.querySelectorAll('.card-slot').forEach(slot => slot.classList.remove('taken'));
+                    unavailableCards.clear();
+
+                    console.log("distributeCards() - Состояние доски перед placeCardsOnBoard:", getGameStateFromDOM().board); // ЛОГ: Состояние доски ПЕРЕД placeCardsOnBoard
+
+                    placeCardsOnBoard(data.move);
+
+                    console.log("distributeCards() - Состояние доски ПОСЛЕ placeCardsOnBoard:", getGameStateFromDOM().board); // ЛОГ: Состояние доски ПОСЛЕ placeCardsOnBoard
+
+                    if (data.royalties) {
+                        displayRoyalties(data.royalties);
+                    }
+                    if (data.total_royalty !== undefined) {
+                        displayTotalRoyalty(data.total_royalty);
+                    }
+
+                    // Clear combination area after successful placement
+                    resetCombinationArea();
+
+                    // Increment dealPhase after the AI move
+                    dealPhase++;
+                    console.log("distributeCards() - dealPhase увеличен до:", dealPhase); // ЛОГ: Новый dealPhase
+
+                    // Save game state to session *AFTER* UI update and BEFORE clearing selected_cards
+                    console.log("distributeCards() - Состояние игры перед saveGameStateToSession (getGameStateFromDOM):", getGameStateFromDOM()); // ЛОГ: Состояние игры ПЕРЕД saveGameStateToSession
+                    saveGameStateToSession();
+                    console.log("distributeCards() - Состояние игры ПОСЛЕ saveGameStateToSession (getGameStateFromDOM):", getGameStateFromDOM()); // ЛОГ: Состояние игры ПОСЛЕ saveGameStateToSession
+
+                    gameState.selected_cards = [];  // VERY IMPORTANT - Clear after placing
+                    console.log("distributeCards() - selected_cards очищены."); // ЛОГ: selected_cards очищены
+                    console.log("distributeCards() - Состояние игры после очистки selected_cards:", getGameStateFromDOM()); // ЛОГ: Состояние игры после очистки selected_cards
+
+
+                })
+                .catch(error => {
+                    console.error('distributeCards() - Ошибка во время запроса хода ИИ:', error); // ЛОГ: Ошибка запроса
+                    alert('Произошла ошибка при получении хода ИИ.');
+                });
+            }
+             else {
+                alert('Пожалуйста, выберите карты для добавления.');
+            }
+            console.log("distributeCards() - Конец."); // ЛОГ: Конец функции
+        }
+
+
+        function resetCombinationArea() {
+            console.log("resetCombinationArea() - Начало");
+            const combinationArea = document.getElementById('combination-area');
+            combinationArea.innerHTML = ''; // Clear all slots
+
+            // Re-add the empty slots
+            for (let i = 0; i < 17; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'combination-slot';
+                slot.addEventListener('dragover', (e) => e.preventDefault());
+                slot.addEventListener('drop', handleCombinationSlotDrop); // Use a named function
+                combinationArea.appendChild(slot);
+            }
+            console.log("resetCombinationArea() - Конец. Область комбинаций сброшена.");
+        }
+
+        // Define the named function for the drop event
+        function handleCombinationSlotDrop(e) {
+            e.preventDefault();  // Prevent default behavior
+            const cardData = JSON.parse(e.dataTransfer.getData('card'));
+            const cardKey = `${cardData.rank}${cardData.suit}`;
+            // Allow dropping only in the combination area, and only if the slot is empty
+            if (!unavailableCards.has(cardKey) && e.currentTarget.children.length === 0) {
+                const card = createCard(cardData);
+                e.currentTarget.appendChild(card); // Append the card to the slot
+                unavailableCards.add(cardKey); // Mark the card as unavailable
+                e.currentTarget.classList.add('taken'); // Mark the slot as taken
+            }
+        }
+
+
         function displayRoyalties(royalties) {
-            console.log("displayRoyalties() - Начало. royalties:", royalties); // ЛОГ: Начало функции, роялти
+            console.log("displayRoyalties() - Начало. royalties:", royalties);
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
                 const royaltyValue = royalties[line];
@@ -941,19 +940,19 @@
                     }
                 }
             });
-            console.log("displayRoyalties() - Конец. Роялти отображены."); // ЛОГ: Конец функции
+            console.log("displayRoyalties() - Конец. Роялти отображены.");
         }
 
         function displayTotalRoyalty(totalRoyalty) {
-            console.log("displayTotalRoyalty() - Начало. totalRoyalty:", totalRoyalty); // ЛОГ: Начало функции, общая роялти
+            console.log("displayTotalRoyalty() - Начало. totalRoyalty:", totalRoyalty);
             const totalRoyaltyElement = document.getElementById('total-royalty');
             totalRoyaltyElement.textContent = `Total Royalty: +${totalRoyalty}`; // Add "+" sign
-            console.log("displayTotalRoyalty() - Конец. Общая роялти отображена."); // ЛОГ: Конец функции
+            console.log("displayTotalRoyalty() - Конец. Общая роялти отображена.");
         }
 
 
         function saveGameStateToSession() {
-            console.log("saveGameStateToSession() - Начало"); // ЛОГ: Начало функции
+            console.log("saveGameStateToSession() - Начало");
             const gameState = getGameStateFromDOM();
             const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
@@ -964,7 +963,7 @@
                 aiType: document.getElementById('aiType').value
             };
 
-            console.log("saveGameStateToSession() - Сохранение состояния игры в сессию:", { ...gameState, ai_settings: aiSettings }); // ЛОГ: Данные для сохранения
+            console.log("saveGameStateToSession() - Сохранение состояния игры в сессию:", { ...gameState, ai_settings: aiSettings });
 
             fetch('/update_state', {
                 method: 'POST',
@@ -975,16 +974,16 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                console.log("saveGameStateToSession() - Сервер: Состояние игры успешно сохранено в сессию."); // ЛОГ: Серверный ответ
+                console.log("saveGameStateToSession() - Сервер: Состояние игры успешно сохранено в сессию.");
             })
             .catch(error => {
-                console.error('saveGameStateToSession() - Ошибка сохранения состояния игры в сессию:', error); // ЛОГ: Ошибка
+                console.error('saveGameStateToSession() - Ошибка сохранения состояния игры в сессию:', error);
             });
-            console.log("saveGameStateToSession() - Конец. Состояние игры сохранено в сессию."); // ЛОГ: Конец функции
+            console.log("saveGameStateToSession() - Конец. Состояние игры сохранено в сессию.");
         }
 
         function saveSettings() {
-            console.log("saveSettings() - Начало"); // ЛОГ: Начало функции
+            console.log("saveSettings() - Начало");
             const aiSettings = {
                 fantasyType: document.getElementById('fantasyType').value,
                 fantasyMode: document.getElementById('fantasyMode').checked,
@@ -994,7 +993,7 @@
                 aiType: document.getElementById('aiType').value
             };
 
-            console.log("saveSettings() - Сохранение настроек:", aiSettings); // ЛОГ: Сохраняемые настройки
+            console.log("saveSettings() - Сохранение настроек:", aiSettings);
 
             fetch('/update_state', {
                 method: 'POST',
@@ -1013,7 +1012,7 @@
                 return response.json();
             })
             .then(data => {
-                console.log("saveSettings() - Ответ сервера сохранения настроек:", data); // ЛОГ: Ответ сервера
+                console.log("saveSettings() - Ответ сервера сохранения настроек:", data);
                 if (data.status === 'success') {
                     alert('Настройки сохранены!');
                     toggleMenu();
@@ -1022,20 +1021,20 @@
                 }
             })
             .catch(error => {
-                console.error('saveSettings() - Ошибка сохранения настроек:', error); // ЛОГ: Ошибка
+                console.error('saveSettings() - Ошибка сохранения настроек:', error);
                 alert('Произошла ошибка при сохранении настроек.');
             });
-            console.log("saveSettings() - Конец. Настройки сохранены."); // ЛОГ: Конец функции
+            console.log("saveSettings() - Конец. Настройки сохранены.");
         }
 
         function removeCardFromUnavailable(cardKey) {
-            console.log("removeCardFromUnavailable() - Начало. cardKey:", cardKey); // ЛОГ: Начало функции, ключ карты
+            console.log("removeCardFromUnavailable() - Начало. cardKey:", cardKey);
             if (unavailableCards.has(cardKey)) {
                 unavailableCards.delete(cardKey);
                 const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
                 updateSelectorItemAvailability(rank, suit);
             }
-            console.log("removeCardFromUnavailable() - Конец. Карта удалена из unavailableCards."); // ЛОГ: Конец функции
+            console.log("removeCardFromUnavailable() - Конец. Карта удалена из unavailableCards.");
         }
 		function isCardOnBoard(card) {
 			const board = getGameStateFromDOM().board;
@@ -1048,22 +1047,22 @@
 		}
 
         function updateSelectorItemAvailability(rank, suit) {
-            console.log("updateSelectorItemAvailability() - Начало. rank:", rank, "suit:", suit); // ЛОГ: Начало функции, ранг и масть
+            console.log("updateSelectorItemAvailability() - Начало. rank:", rank, "suit:", suit);
             let rankCount = document.querySelectorAll(`.card[data-rank="${rank}"]`).length;
             let suitCount = document.querySelectorAll(`.card[data-suit="${suit}"]`).length;
-            console.log("updateSelectorItemAvailability() - rankCount:", rankCount, "suitCount:", suitCount); // ЛОГ: Кол-во карт
+            console.log("updateSelectorItemAvailability() - rankCount:", rankCount, "suitCount:", suitCount);
 
             document.querySelectorAll('.selector-item').forEach(item => {
                 if (item.dataset.rank === rank) {
                     item.classList.toggle('unavailable', rankCount === 0 && !unavailableCards.has(`${rank}${suit}`));
-                    console.log(`updateSelectorItemAvailability() - Элемент селектора ранга ${rank} установлен как unavailable: ${item.classList.contains('unavailable')}`); // ЛОГ: Статус unavailable
+                    console.log(`updateSelectorItemAvailability() - Элемент селектора ранга ${rank} установлен как unavailable: ${item.classList.contains('unavailable')}`);
                 }
                 if (item.dataset.suit === suit) {
                     item.classList.toggle('unavailable', suitCount === 0 && !unavailableCards.has(`${rank}${suit}`));
-                    console.log(`updateSelectorItemAvailability() - Элемент селектора масти ${suit} установлен как unavailable: ${item.classList.contains('unavailable')}`); // ЛОГ: Статус unavailable
+                    console.log(`updateSelectorItemAvailability() - Элемент селектора масти ${suit} установлен как unavailable: ${item.classList.contains('unavailable')}`);
                 }
             });
-            console.log("updateSelectorItemAvailability() - Конец. Доступность элементов селектора обновлена."); // ЛОГ: Конец функции
+            console.log("updateSelectorItemAvailability() - Конец. Доступность элементов селектора обновлена.");
         }
 
         document.addEventListener('DOMContentLoaded', () => {
