@@ -127,12 +127,9 @@ def update_state():
         session['game_state'] = session.get('game_state', {})
         app.logger.debug(f"Session BEFORE update: {session['game_state']}") # Log session state before update
 
-        # Update board - APPEND, don't replace!
+        # Update board - REPLACE board in session (Corrected: replace, not append!)
         if 'board' in game_state:
-            for line in ['top', 'middle', 'bottom']:
-                if line in game_state['board']:
-                    # Extend the existing list with the new cards
-                    session['game_state']['board'].setdefault(line, [None] * [3, 5, 5][['top', 'middle', 'bottom'].index(line)]).extend(game_state['board'][line]) # Initialize with None if needed and then extend
+            session['game_state']['board'] = game_state['board'] # Simply replace the entire board
             app.logger.debug(f"Updated board: {session['game_state']['board']}") # Log updated board
 
         # Update other keys
