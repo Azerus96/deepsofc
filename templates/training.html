@@ -435,7 +435,7 @@
             <div class="selector-item" data-suit="♥">♥</div>
             <div class="selector-item" data-suit="♦">♦</div>
             <div class="selector-item" data-suit="♣">♣</div>
-            <div class="selector-item" data-suit="♠">♠</div>
+            <div class="selector-item" data-suit="♠</div>
             <button class="selector-item action-button" onclick="removeSelectedCards()">-</button>
         </div>
     </div>
@@ -675,12 +675,12 @@
 
         // Corrected getGameStateFromDOM
         function getGameStateFromDOM() {
-            console.log("getGameStateFromDOM() - Начало"); // ЛОГ: Начало функции
+            console.log("getGameStateFromDOM() - Начало");
             const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
                 rank: card.dataset.rank,
                 suit: card.dataset.suit
             }));
-            console.log("getGameStateFromDOM() - Выбранные карты из DOM:", selectedCards); // ЛОГ: Выбранные карты
+            console.log("getGameStateFromDOM() - Выбранные карты из DOM:", selectedCards);
 
             const board = {
                 top: Array.from(document.querySelectorAll('#top-row .card-slot .card')).map(card => {
@@ -705,8 +705,9 @@
             });
 
             console.log("getGameStateFromDOM() - Состояние игры из DOM:", { selected_cards: selectedCards, board: board, discarded_cards: discardedCards }); // ЛОГ: Полное состояние игры
+            console.log("getGameStateFromDOM() - Собранная доска:", board); // ЛОГ: Проверка собранной доски <--- ЛОГ ЗДЕСЬ
 
-            console.log("getGameStateFromDOM() - Конец. Возвращено состояние игры."); // ЛОГ: Конец функции
+            console.log("getGameStateFromDOM() - Конец. Возвращено состояние игры.");
             return {
                 selected_cards: selectedCards,
                 board: board,
@@ -750,7 +751,7 @@
                       while (slotIndex < slots.length && slots[slotIndex].querySelector('.card')) {
                           slotIndex++;
                       }
-
+                      console.log(`placeCardsOnBoard() - Линия: ${line}, card_idx: ${card_idx}, slotIndex после поиска пустого слота: ${slotIndex}`); // <--- ЛОГ
                       if (slotIndex >= slots.length || slotIndex < 0) {
                           console.error(`placeCardsOnBoard() - slotIndex за пределами границ для ${line} на индексе карты ${card_idx}: ${slotIndex}, slots.length: ${slots.length}`); // ЛОГ: Ошибка, индекс слота за границами
                           return; // Skip card if slotIndex is invalid
@@ -761,6 +762,7 @@
                           console.error(`placeCardsOnBoard() - Элемент слота равен null для ${line} на индексе ${slotIndex}, индексе карты ${card_idx}`); // ЛОГ: Ошибка, элемент слота null
                           return;
                       }
+                      console.log(`placeCardsOnBoard() - Линия: ${line}, card_idx: ${card_idx}, slotIndex перед appendChild: ${slotIndex}`); // <--- ЛОГ
 
                       console.log(`placeCardsOnBoard() - Размещение карты ${cardData.rank}${cardData.suit} в ${line}-row слоте на индексе ${slotIndex}, индексе карты ${card_idx}`); // ЛОГ: Размещение карты
                       const card = createCard(cardData);
@@ -769,6 +771,7 @@
                       slot.classList.add('taken');
                       slotIndex++;
                       console.log(`placeCardsOnBoard() - slotIndex увеличен до: ${slotIndex} после размещения карты ${cardData.rank}${cardData.suit}`); // ЛОГ: Новый индекс слота
+                      console.log(`placeCardsOnBoard() - Линия: ${line}, card_idx: ${card_idx}, slotIndex после appendChild: ${slotIndex}`); // <--- ЛОГ
                   });
               } else {
                   console.warn(`placeCardsOnBoard() - Нет данных хода или данных слотов для линии ${line}.`); // ЛОГ: Предупреждение, нет данных для линии
