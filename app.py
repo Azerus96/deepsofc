@@ -136,7 +136,7 @@ def update_state():
 
         # Update other keys
         if 'selected_cards' in game_state:
-             session['game_state']['selected_cards'] = game_state['selected_cards']
+            session['game_state']['selected_cards'] = game_state['selected_cards']
         if 'discarded_cards' in game_state:
             session['game_state']['discarded_cards'] = game_state['discarded_cards']
         if 'ai_settings' in game_state:
@@ -296,34 +296,19 @@ def ai_move():
 
         if move:
             app.logger.info("Updating game state in session with AI move")
-            for line in ['top', 'middle', 'bottom']:
-                if line in move:
-                    placed_cards = move.get(line, [])
-                    slot_index = next_available_slots[line]  # Get from pre-calculated slots
-                    for card in placed_cards:
-                        serialized_card = serialize_card(card)
-                        # Проверяем, что slot_index в пределах границ и слот пустой (None)
-                        if slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is None:
-                            session['game_state']['board'][line][slot_index] = serialized_card
-                            slot_index += 1
-                        else:
-                            app.logger.warning(f"No slot for {serialized_card} on {line}")
+            # Update the session with the AI move
+            session['game_state']['board'] = move
+            app.logger.debug(f"Updated session with new board: {session['game_state']['board']}")
 
-            discarded_card = move.get('discarded')
-            if discarded_card:
-                session['game_state']['discarded_cards'].append(serialize_card(discarded_card))
-
-        # No need to set session.modified = True, flask will do it.
-
-        app.logger.info(f"Returning AI move: {serialized_move}, Royalties: {royalties}, Total Royalty: {total_royalty}")
         return jsonify({
             'move': serialized_move,
             'royalties': royalties,
             'total_royalty': total_royalty
-        })
+        }), 200
+
     except Exception as e:
-        app.logger.exception("Exception during move serialization/update/response:")
-        return jsonify({'error': f"Error during move serialization/update/response: {e}"}), 500
+        app.logger.exception("Exception during move serialization and response:")
+        return jsonify({'error': f"Error during move serialization: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
