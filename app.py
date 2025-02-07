@@ -205,7 +205,7 @@ def ai_move():
                 return jsonify({'error': f'Invalid board[{line}] format'}), 400
             for card_data in line_data:
                 if card_data:
-                    board.place_card(line, Card.from_dict(card_dict))
+                    board.place_card(line, Card.from_dict(card_data)) # <--- Замени card_dict на card_data
         app.logger.debug(f"Processed board: {board}") # Log processed board
 
         # --- Game State Creation ---
