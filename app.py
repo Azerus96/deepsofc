@@ -68,7 +68,11 @@ def training():
         app.logger.info("Initializing new game state in session")
         session['game_state'] = {
             'selected_cards': [],
-            'board': {'top': [], 'middle': [], 'bottom': []},
+            'board': {
+                'top': [None] * 3,    # 3 слота для верхней линии
+                'middle': [None] * 5, # 5 слотов для средней линии
+                'bottom': [None] * 5  # 5 слотов для нижней линии
+            },
             'discarded_cards': [],
             'ai_settings': {
                 'fantasyType': 'normal',
@@ -127,7 +131,7 @@ def update_state():
             for line in ['top', 'middle', 'bottom']:
                 if line in game_state['board']:
                     # Extend the existing list with the new cards
-                    session['game_state']['board'].setdefault(line, []).extend(game_state['board'][line])
+                    session['game_state']['board'].setdefault(line, [None] * [3, 5, 5][['top', 'middle', 'bottom'].index(line)]).extend(game_state['board'][line]) # Initialize with None if needed and then extend
             app.logger.info(f"Updated board: {session['game_state']['board']}")
 
         # Update other keys
@@ -148,10 +152,6 @@ def update_state():
 
         app.logger.info(f"Session AFTER update: {session['game_state']}")
         return jsonify({'status': 'success'})
-
-    except Exception as e:
-        app.logger.exception(f"Error in update_state: {e}")  # Use exception for full traceback
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
@@ -302,9 +302,10 @@ def ai_move():
                     slot_index = next_available_slots[line]  # Get from pre-calculated slots
                     for card in placed_cards:
                         serialized_card = serialize_card(card)
-                        if slot_index < len(session['game_state']['board'][line]):
+                        # Проверяем, что slot_index в пределах границ и слот пустой (None)
+                        if slot_index < len(session['game_state']['board'][line]) and session['game_state']['board'][line][slot_index] is None:
                             session['game_state']['board'][line][slot_index] = serialized_card
-                            slot_index += 1 # Increment for the NEXT card
+                            slot_index += 1
                         else:
                             app.logger.warning(f"No slot for {serialized_card} on {line}")
 
