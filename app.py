@@ -14,5 +14,9 @@ def training():
 def ai_move():
     return jsonify({'message': 'AI move route is working'})
 
+@app.route('/update_state', methods=['POST'])  # <--- Добавлен route /update_state
+def update_state():                               # <--- Функция для /update_state
+    return jsonify({'status': 'success'})       # <--- Возвращает JSON с status: success
+
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
