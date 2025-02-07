@@ -110,8 +110,7 @@
         .checkbox-container input[type="checkbox"] {
             width: auto;
         }
-
-        .table {
+	    .table {
             display: grid;
             grid-template-rows: auto auto auto;
             gap: 20px;
@@ -176,7 +175,8 @@
             -webkit-user-select: none;
             z-index: 2;
         }
-	    .card[data-suit="♥"], .card[data-suit="♦"] {
+
+        .card[data-suit="♥"], .card[data-suit="♦"] {
             color: #e44145;
         }
 
@@ -241,8 +241,7 @@
             font-size: 16px;
             height: 45px;
         }
-
-        .combination-area {
+	    .combination-area {
             display: flex;
             justify-content: center;
             gap: 10px;
@@ -561,8 +560,7 @@
             });
             console.log("setupTable() - Конец. Таблица настроена.");
         }
-
-        function resetCombinationArea() {
+	    function resetCombinationArea() {
             console.log("resetCombinationArea() - Начало");
             const combinationArea = document.getElementById('combination-area');
             combinationArea.innerHTML = '';
@@ -577,7 +575,8 @@
             }
             console.log("resetCombinationArea() - Конец. Создано 17 слотов для комбинаций.");
         }
-	    function handleCombinationSlotDrop(e) {
+
+        function handleCombinationSlotDrop(e) {
             e.preventDefault();
             const cardData = JSON.parse(e.dataTransfer.getData('card'));
             const cardKey = `${cardData.rank}${cardData.suit}`;
@@ -587,6 +586,43 @@
                 unavailableCards.add(cardKey);
                 e.currentTarget.classList.add('taken');
             }
+        }
+
+        function getGameStateFromDOM() {
+            console.log("getGameStateFromDOM() - Начало");
+            
+            // Получаем только карты из слотов, помеченных как taken
+            const selectedCards = Array.from(document.querySelectorAll('.combination-area .combination-slot.taken .card')).map(card => ({
+                rank: card.dataset.rank,
+                suit: card.dataset.suit
+            }));
+            console.log("getGameStateFromDOM() - Выбранные карты из DOM:", selectedCards);
+
+            const board = {
+                top: Array.from(document.querySelectorAll('#top-row .card-slot .card')).map(card => 
+                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
+                ),
+                middle: Array.from(document.querySelectorAll('#middle-row .card-slot .card')).map(card => 
+                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
+                ),
+                bottom: Array.from(document.querySelectorAll('#bottom-row .card-slot .card')).map(card => 
+                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
+                )
+            };
+
+            console.log("getGameStateFromDOM() - Состояние доски из DOM:", board);
+
+            const discardedCards = Array.from(unavailableCards).map(cardKey => {
+                const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
+                return { rank, suit };
+            });
+
+            console.log("getGameStateFromDOM() - Конец. Возвращено состояние игры.");
+            return {
+                selected_cards: selectedCards,
+                board: board,
+                discarded_cards: discardedCards
+            };
         }
 
         function placeCardsOnBoard(moveData) {
@@ -641,8 +677,7 @@
             });
             console.log("placeCardsOnBoard() - Конец. Карты размещены на доске.");
         }
-
-        function handleCardSelection(element) {
+	    function handleCardSelection(element) {
             console.log("handleCardSelection() - Начало. element:", element);
             if (element.classList.contains('unavailable')) {
                 console.log("handleCardSelection() - Карта недоступна, выход.");
@@ -693,13 +728,24 @@
             }
             console.log("handleCardSelection() - Конец.");
         }
-	    function distributeCards() {
+
+        function distributeCards() {
             console.log("distributeCards() - Начало");
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
-            console.log("distributeCards() - Текущее состояние игры:", gameState);
-            console.log("distributeCards() - Количество выбранных карт:", numCards);
-            console.log("distributeCards() - dealPhase:", dealPhase);
+            
+            // Подсчитываем количество свободных слотов
+            const occupiedSlots = ['top', 'middle', 'bottom'].reduce((total, row) => {
+                return total + gameState.board[row].filter(card => card !== null).length;
+            }, 0);
+            const freeSlots = 13 - occupiedSlots;
+            
+            console.log(`distributeCards() - Свободных слотов: ${freeSlots}, Выбрано карт: ${numCards}`);
+
+            if (numCards > freeSlots) {
+                alert(`Можно выбрать максимум ${freeSlots} карт. Сейчас выбрано: ${numCards}`);
+                return;
+            }
 
             if (numCards > 0) {
                 console.log("distributeCards() - Вызов ИИ для распределения карт");
@@ -727,7 +773,7 @@
                     },
                     body: requestData
                 })
-                .then(response => {
+		    .then(response => {
                     console.log("distributeCards() - Ответ сервера статус:", response.status);
                     if (!response.ok) {
                         return response.text().then(text => {
@@ -790,7 +836,8 @@
             });
             console.log("removeSelectedCards() - Конец. Карты удалены из комбинации.");
         }
-	    function resetTraining() {
+
+        function resetTraining() {
             console.log("resetTraining() - Начало");
             dealPhase = 0;
             setupTable();
@@ -831,7 +878,7 @@
                     }
                 })
             })
-            .then(response => {
+		.then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -844,41 +891,6 @@
             console.log("resetTraining() - Конец. Тренировка сброшена.");
         }
 
-        function getGameStateFromDOM() {
-            console.log("getGameStateFromDOM() - Начало");
-            const selectedCards = Array.from(document.querySelectorAll('.combination-area .card')).map(card => ({
-                rank: card.dataset.rank,
-                suit: card.dataset.suit
-            }));
-            console.log("getGameStateFromDOM() - Выбранные карты из DOM:", selectedCards);
-
-            const board = {
-                top: Array.from(document.querySelectorAll('#top-row .card-slot .card')).map(card => 
-                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
-                ),
-                middle: Array.from(document.querySelectorAll('#middle-row .card-slot .card')).map(card => 
-                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
-                ),
-                bottom: Array.from(document.querySelectorAll('#bottom-row .card-slot .card')).map(card => 
-                    card ? { rank: card.dataset.rank, suit: card.dataset.suit } : null
-                )
-            };
-
-            console.log("getGameStateFromDOM() - Состояние доски из DOM:", board);
-
-            const discardedCards = Array.from(unavailableCards).map(cardKey => {
-                const [rank, suit] = cardKey.match(/([0-9JQKA]+)([♥♦♣♠])/).slice(1);
-                return { rank, suit };
-            });
-
-            console.log("getGameStateFromDOM() - Конец. Возвращено состояние игры.");
-            return {
-                selected_cards: selectedCards,
-                board: board,
-                discarded_cards: discardedCards
-            };
-        }
-
         function isCardOnBoard(card) {
             const board = getGameStateFromDOM().board;
             for (const line in board) {
@@ -888,7 +900,8 @@
             }
             return false;
         }
-	    function displayRoyalties(royalties) {
+
+        function displayRoyalties(royalties) {
             console.log("displayRoyalties() - Начало. royalties:", royalties);
             const lines = ['top', 'middle', 'bottom'];
             lines.forEach(line => {
@@ -1009,7 +1022,6 @@
                 item.addEventListener('click', () => handleCardSelection(item));
             });
 
-            // Настройка слайдеров
             ['aiTime', 'iterations', 'stopThreshold'].forEach(id => {
                 const slider = document.getElementById(id);
                 const value = document.getElementById(`${id}Value`);
