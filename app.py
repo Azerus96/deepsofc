@@ -20,7 +20,6 @@ app.secret_key = os.urandom(24)
 # Глобальные экземпляры AI
 cfr_agent = None
 random_agent = RandomAgent()
-
 def calculate_current_street(board_data):
     """Определяет текущую улицу на основе количества размещенных карт"""
     occupied_slots = sum(1 for line in board_data.values() 
@@ -50,9 +49,6 @@ def validate_move(board_data, selected_cards):
             return False, "После первой улицы можно выбрать максимум 2 карты"
         if num_selected > free_slots:
             return False, f"Недостаточно свободных слотов. Доступно: {free_slots}"
-
-    return True, ""
-
 def initialize_ai_agent(ai_settings):
     global cfr_agent
     logger.info(f"Инициализация AI агента с настройками: {ai_settings}")
@@ -112,8 +108,7 @@ def update_board_state(current_board, new_move):
                 if new_card is not None and i < len(current_line):
                     current_line[i] = new_card
     return current_board
-
-@app.route('/')
+  @app.route('/')
 def home():
     logger.debug("Обработка запроса главной страницы")
     return render_template('index.html')
@@ -167,8 +162,7 @@ def training():
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
-
-@app.route('/update_state', methods=['POST'])
+  @app.route('/update_state', methods=['POST'])
 def update_state():
     logger.debug("Обработка запроса обновления состояния")
     if not request.is_json:
@@ -231,8 +225,7 @@ def update_state():
     except Exception as e:
         logger.exception(f"Ошибка в update_state: {e}")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/ai_move', methods=['POST'])
+      @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
     global random_agent
@@ -292,7 +285,7 @@ def ai_move():
             ai_settings=game_state_data.get('ai_settings', {}),
             deck=ai_engine.Card.get_all_cards()
         )
-        logger.debug(f"Создано состояние игры: {game_state}")
+      logger.debug(f"Создано состояние игры: {game_state}")
 
         # Проверка терминального состояния
         if game_state.is_terminal():
@@ -321,31 +314,31 @@ def ai_move():
                 'total_royalty': total_royalty
             }), 200
 
-             # Получение следующих доступных слотов
-             next_available_slots = get_next_available_slots(session['game_state']['board'])
-             logger.debug(f"Следующие доступные слоты ПЕРЕД ходом AI: {next_available_slots}")
+        # Получение следующих доступных слотов
+        next_available_slots = get_next_available_slots(session['game_state']['board'])
+        logger.debug(f"Следующие доступные слоты ПЕРЕД ходом AI: {next_available_slots}")
 
-             # Выбор и выполнение хода AI
-             timeout_event = Event()
-             result = {'move': None}
-             ai_settings = game_state_data.get('ai_settings', {})
-             ai_type = ai_settings.get('aiType', 'mccfr')
+        # Выбор и выполнение хода AI
+        timeout_event = Event()
+        result = {'move': None}
+        ai_settings = game_state_data.get('ai_settings', {})
+        ai_type = ai_settings.get('aiType', 'mccfr')
 
-                 try:
-                     if ai_type == 'mccfr':
-                     if cfr_agent is None:
-                         logger.error("Ошибка: MCCFR агент не инициализирован")
-                         return jsonify({'error': 'MCCFR agent not initialized'}), 500
-              ai_thread = Thread(target=cfr_agent.get_move, 
-              args=(game_state, len(selected_cards), timeout_event, result))
-                      else:  # ai_type == 'random'
-              ai_thread = Thread(target=random_agent.get_move, 
-              args=(game_state, len(selected_cards), timeout_event, result))
+        try:
+            if ai_type == 'mccfr':
+                if cfr_agent is None:
+                    logger.error("Ошибка: MCCFR агент не инициализирован")
+                    return jsonify({'error': 'MCCFR agent not initialized'}), 500
+                ai_thread = Thread(target=cfr_agent.get_move, 
+                                 args=(game_state, len(selected_cards), timeout_event, result))
+            else:  # ai_type == 'random'
+                ai_thread = Thread(target=random_agent.get_move, 
+                                 args=(game_state, len(selected_cards), timeout_event, result))
 
-              ai_thread.start()
-              ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
+            ai_thread.start()
+            ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
 
-              if ai_thread.is_alive():
+            if ai_thread.is_alive():
                 timeout_event.set()
                 ai_thread.join()
                 logger.warning("Время ожидания хода AI истекло")
@@ -383,7 +376,7 @@ def ai_move():
                 'move': serialized_move,
                 'royalties': royalties,
                 'total_royalty': total_royalty
-                }
+            }
 
             logger.debug(f"Отправка ответа: {response_data}")
             return jsonify(response_data), 200
