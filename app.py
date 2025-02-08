@@ -356,37 +356,42 @@ def ai_move():
         ai_settings = game_state_data.get('ai_settings', {})
         ai_type = ai_settings.get('aiType', 'mccfr')
 
-        try:
-            if ai_type == 'mccfr':
-                if cfr_agent is None:
-                    logger.error("Ошибка: MCCFR агент не инициализирован")
-                    return jsonify({'error': 'MCCFR agent not initialized'}), 500
-                ai_thread = Thread(target=cfr_agent.get_move,
-                                   args=(game_state, len(selected_cards), timeout_event, result))
-            else:  # ai_type == 'random'
-                ai_thread = Thread(target=random_agent.get_move,
-                                   args=(game_state, len(selected_cards), timeout_event, result))
+        try:  # Внешний try...except
+            try:  # Внутренний try...except
+                if ai_type == 'mccfr':
+                    if cfr_agent is None:
+                        logger.error("Ошибка: MCCFR агент не инициализирован")
+                        return jsonify({'error': 'MCCFR agent not initialized'}), 500
+                    ai_thread = Thread(target=cfr_agent.get_move,
+                                       args=(game_state, len(selected_cards), timeout_event, result))
+                else:  # ai_type == 'random'
+                    ai_thread = Thread(target=random_agent.get_move,
+                                       args=(game_state, len(selected_cards), timeout_event, result))
 
-            ai_thread.start()
-            ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
+                ai_thread.start()
+                ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
 
-            if ai_thread.is_alive():
-                timeout_event.set()
-                ai_thread.join()
-                logger.warning("Время ожидания хода AI истекло")
-                return jsonify({'error': 'AI move timed out'}), 504
+                if ai_thread.is_alive():
+                    timeout_event.set()
+                    ai_thread.join()
+                    logger.warning("Время ожидания хода AI истекло")
+                    return jsonify({'error': 'AI move timed out'}), 504
 
-            move = result.get('move')
-            if move is None or 'error' in move:
-                logger.error(
-                    f"Ошибка хода AI: {move.get('error', 'Unknown error')}")
-                return jsonify({'error': move.get('error', 'Unknown error')}), 500
+                move = result.get('move')
+                if move is None or 'error' in move:
+                    logger.error(
+                        f"Ошибка хода AI: {move.get('error', 'Unknown error')}")
+                    return jsonify({'error': move.get('error', 'Unknown error')}), 500
 
-            logger.debug(f"Получен ход AI: {move}")
+                logger.debug(f"Получен ход AI: {move}")
+
+            except Exception as e:
+                logger.exception("Исключение при выполнении хода AI:")
+                return jsonify({'error': f"Error during AI move execution: {e}"}), 500
 
         except Exception as e:
-            logger.exception("Исключение при выполнении хода AI:")
-            return jsonify({'error': f"Error during AI move execution: {e}"}), 500
+            logger.exception("Исключение верхнего уровня в ai_move")
+            return jsonify({'error': str(e)}), 500
 
         # Сериализация и отправка ответа
         try:
