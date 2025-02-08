@@ -125,7 +125,7 @@ def training():
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
-    @app.route('/update_state', methods=['POST'])
+@app.route('/update_state', methods=['POST'])
 def update_state():
     logger.debug("Обработка запроса обновления состояния")
     if not request.is_json:
