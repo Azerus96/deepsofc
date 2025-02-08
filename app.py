@@ -385,8 +385,8 @@ def ai_move():
                 'total_royalty': total_royalty
                 }
 
-                logger.debug(f"Отправка ответа: {response_data}")
-                return jsonify(response_data), 200
+            logger.debug(f"Отправка ответа: {response_data}")
+            return jsonify(response_data), 200
 
         except Exception as e:
             logger.exception("Исключение при сериализации и отправке ответа:")
