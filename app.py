@@ -49,7 +49,7 @@ def validate_move(board_data, selected_cards):
             return False, "После первой улицы можно выбрать максимум 2 карты"
         if num_selected > free_slots:
             return False, f"Недостаточно свободных слотов. Доступно: {free_slots}"
-          def initialize_ai_agent(ai_settings):
+def initialize_ai_agent(ai_settings):
     global cfr_agent
     logger.info(f"Инициализация AI агента с настройками: {ai_settings}")
     try:
