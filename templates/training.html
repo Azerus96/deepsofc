@@ -76,8 +76,7 @@
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             overflow-y: auto;
         }
-
-        .menu-panel h3 {
+	    .menu-panel h3 {
             margin-left: 40px;
         }
 
@@ -110,7 +109,8 @@
         .checkbox-container input[type="checkbox"] {
             width: auto;
         }
-	    .table {
+
+        .table {
             display: grid;
             grid-template-rows: auto auto auto;
             gap: 20px;
@@ -204,8 +204,7 @@
             align-items: center;
             padding: 5px;
         }
-
-        .selector-item, .action-button {
+	    .selector-item, .action-button {
             padding: 12px 20px;
             border: 2px solid #ddd;
             border-radius: 5px;
@@ -241,7 +240,8 @@
             font-size: 16px;
             height: 45px;
         }
-	    .combination-area {
+
+        .combination-area {
             display: flex;
             justify-content: center;
             gap: 10px;
@@ -451,7 +451,8 @@
     <div class="combination-area" id="combination-area"></div>
 
     <script>
-	    let menuOpen = false;
+	    <script>
+        let menuOpen = false;
         let selectedRank = null;
         let selectedSuit = null;
         let isFullscreen = false;
@@ -712,6 +713,26 @@
                 const cardKey = `${selectedRank}${selectedSuit}`;
                 if (!unavailableCards.has(cardKey)) {
                     const combinationArea = document.getElementById('combination-area');
+                    
+                    // Подсчитываем количество уже выбранных карт
+                    const selectedCardsCount = combinationArea.querySelectorAll('.combination-slot.taken').length;
+                    
+                    // Получаем текущую улицу
+                    const gameState = getGameStateFromDOM();
+                    const occupiedSlots = ['top', 'middle', 'bottom'].reduce((total, row) => {
+                        return total + gameState.board[row].filter(card => card !== null).length;
+                    }, 0);
+                    const currentStreet = Math.floor((occupiedSlots - 5) / 2) + 1;
+                    
+                    // Проверяем лимит карт для текущей улицы
+                    const maxCardsAllowed = currentStreet === 1 ? 5 : 2;
+                    
+                    if (selectedCardsCount >= maxCardsAllowed) {
+                        console.log(`handleCardSelection() - Достигнут лимит карт (${maxCardsAllowed}) для улицы ${currentStreet}`);
+                        alert(`На улице ${currentStreet} можно выбрать максимум ${maxCardsAllowed} карт`);
+                        return;
+                    }
+
                     const emptySlot = combinationArea.querySelector('.combination-slot:not(.taken)');
                     if (emptySlot) {
                         const card = createCard({ rank: selectedRank, suit: selectedSuit });
@@ -734,20 +755,27 @@
             const gameState = getGameStateFromDOM();
             const numCards = gameState.selected_cards.length;
             
-            // Подсчитываем количество свободных слотов
+            // Подсчитываем количество размещенных карт
             const occupiedSlots = ['top', 'middle', 'bottom'].reduce((total, row) => {
                 return total + gameState.board[row].filter(card => card !== null).length;
             }, 0);
-            const freeSlots = 13 - occupiedSlots;
             
-            console.log(`distributeCards() - Свободных слотов: ${freeSlots}, Выбрано карт: ${numCards}`);
-
-            if (numCards > freeSlots) {
-                alert(`Можно выбрать максимум ${freeSlots} карт. Сейчас выбрано: ${numCards}`);
+            // Определяем текущую улицу и допустимое количество карт
+            const currentStreet = Math.floor((occupiedSlots - 5) / 2) + 1;
+            const maxCardsAllowed = currentStreet === 1 ? 5 : 2;
+            
+            console.log(`distributeCards() - Текущая улица: ${currentStreet}, Максимум карт: ${maxCardsAllowed}`);
+            
+            if (currentStreet === 1 && numCards !== 5) {
+                alert('На первой улице нужно выбрать ровно 5 карт');
                 return;
             }
-
-            if (numCards > 0) {
+            
+            if (currentStreet > 1 && numCards > 2) {
+                alert(`После первой улицы можно выбрать максимум 2 карты. Сейчас выбрано: ${numCards}`);
+                return;
+            }
+		if (numCards > 0) {
                 console.log("distributeCards() - Вызов ИИ для распределения карт");
                 const aiSettings = {
                     fantasyType: document.getElementById('fantasyType').value,
@@ -773,7 +801,7 @@
                     },
                     body: requestData
                 })
-		    .then(response => {
+                .then(response => {
                     console.log("distributeCards() - Ответ сервера статус:", response.status);
                     if (!response.ok) {
                         return response.text().then(text => {
@@ -828,11 +856,10 @@
             combinationArea.querySelectorAll('.card').forEach(card => {
                 const cardKey = `${card.dataset.rank}${card.dataset.suit}`;
                 if (!isCardOnBoard({rank: card.dataset.rank, suit: card.dataset.suit})) {
-                    unavailableCards.add(cardKey);
+                    unavailableCards.delete(cardKey);
                 }
                 card.parentElement.classList.remove('taken');
                 card.remove();
-                updateSelectorItemAvailability(card.dataset.rank, card.dataset.suit);
             });
             console.log("removeSelectedCards() - Конец. Карты удалены из комбинации.");
         }
@@ -878,7 +905,7 @@
                     }
                 })
             })
-		.then(response => {
+            .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
