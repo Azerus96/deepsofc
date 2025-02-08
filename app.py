@@ -20,7 +20,6 @@ app.secret_key = os.urandom(24)
 # Глобальные экземпляры AI
 cfr_agent = None
 random_agent = RandomAgent()
-
 def calculate_current_street(board_data):
     """Определяет текущую улицу на основе количества размещенных карт"""
     occupied_slots = sum(1 for line in board_data.values() 
@@ -50,10 +49,7 @@ def validate_move(board_data, selected_cards):
             return False, "После первой улицы можно выбрать максимум 2 карты"
         if num_selected > free_slots:
             return False, f"Недостаточно свободных слотов. Доступно: {free_slots}"
-
-    return True, ""
-
-def initialize_ai_agent(ai_settings):
+          def initialize_ai_agent(ai_settings):
     global cfr_agent
     logger.info(f"Инициализация AI агента с настройками: {ai_settings}")
     try:
@@ -112,8 +108,7 @@ def update_board_state(current_board, new_move):
                 if new_card is not None and i < len(current_line):
                     current_line[i] = new_card
     return current_board
-
-@app.route('/')
+  @app.route('/')
 def home():
     logger.debug("Обработка запроса главной страницы")
     return render_template('index.html')
@@ -167,8 +162,7 @@ def training():
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
-
-@app.route('/update_state', methods=['POST'])
+  @app.route('/update_state', methods=['POST'])
 def update_state():
     logger.debug("Обработка запроса обновления состояния")
     if not request.is_json:
@@ -231,8 +225,7 @@ def update_state():
     except Exception as e:
         logger.exception(f"Ошибка в update_state: {e}")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/ai_move', methods=['POST'])
+      @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
     global random_agent
@@ -292,7 +285,7 @@ def ai_move():
             ai_settings=game_state_data.get('ai_settings', {}),
             deck=ai_engine.Card.get_all_cards()
         )
-        logger.debug(f"Создано состояние игры: {game_state}")
+      logger.debug(f"Создано состояние игры: {game_state}")
 
         # Проверка терминального состояния
         if game_state.is_terminal():
@@ -394,3 +387,5 @@ def ai_move():
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
+
+    return True, ""
