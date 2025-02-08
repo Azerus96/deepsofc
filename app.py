@@ -108,7 +108,7 @@ def update_board_state(current_board, new_move):
                 if new_card is not None and i < len(current_line):
                     current_line[i] = new_card
     return current_board
-  @app.route('/')
+@app.route('/')
 def home():
     logger.debug("Обработка запроса главной страницы")
     return render_template('index.html')
@@ -162,7 +162,7 @@ def training():
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
-  @app.route('/update_state', methods=['POST'])
+@app.route('/update_state', methods=['POST'])
 def update_state():
     logger.debug("Обработка запроса обновления состояния")
     if not request.is_json:
@@ -225,7 +225,7 @@ def update_state():
     except Exception as e:
         logger.exception(f"Ошибка в update_state: {e}")
         return jsonify({'error': str(e)}), 500
-      @app.route('/ai_move', methods=['POST'])
+@app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
     global random_agent
@@ -387,5 +387,3 @@ def ai_move():
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
-
-    return True, ""
