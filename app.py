@@ -10,8 +10,8 @@ from threading import Thread, Event
 import logging
 
 # Настройка логирования
-logging.basicConfig(level=logging.DEBUG, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
@@ -20,26 +20,29 @@ app.secret_key = os.urandom(24)
 # Глобальные экземпляры AI
 cfr_agent = None
 random_agent = RandomAgent()
+
+
 def calculate_current_street(board_data):
     """Определяет текущую улицу на основе количества размещенных карт"""
-    occupied_slots = sum(1 for line in board_data.values() 
-                        for slot in line if slot is not None)
+    occupied_slots = sum(1 for line in board_data.values()
+                         for slot in line if slot is not None)
     if occupied_slots < 5:
         return 1
     return ((occupied_slots - 5) // 2) + 2
+
 
 def validate_move(board_data, selected_cards):
     """Проверяет валидность хода"""
     current_street = calculate_current_street(board_data)
     num_selected = len(selected_cards)
-    
+
     # Подсчет свободных слотов
-    occupied_slots = sum(1 for line in board_data.values() 
-                        for slot in line if slot is not None)
+    occupied_slots = sum(1 for line in board_data.values()
+                         for slot in line if slot is not None)
     free_slots = 13 - occupied_slots  # 13 = 3 + 5 + 5 слотов
-    
+
     logger.debug(f"Валидация хода: улица {current_street}, выбрано карт {num_selected}, "
-                f"занято слотов {occupied_slots}, свободно слотов {free_slots}")
+                 f"занято слотов {occupied_slots}, свободно слотов {free_slots}")
 
     if current_street == 1:
         if num_selected != 5:
@@ -49,6 +52,9 @@ def validate_move(board_data, selected_cards):
             return False, "После первой улицы можно выбрать максимум 2 карты"
         if num_selected > free_slots:
             return False, f"Недостаточно свободных слотов. Доступно: {free_slots}"
+    return True, ""  # Добавлен отступ
+
+
 def initialize_ai_agent(ai_settings):
     global cfr_agent
     logger.info(f"Инициализация AI агента с настройками: {ai_settings}")
@@ -59,7 +65,7 @@ def initialize_ai_agent(ai_settings):
         logger.error("Неверные значения iterations или stopThreshold. Используются значения по умолчанию.")
         iterations = 1000
         stop_threshold = 0.001
-    
+
     cfr_agent = CFRAgent(iterations=iterations, stop_threshold=stop_threshold)
 
     if os.environ.get("AI_PROGRESS_TOKEN"):
@@ -71,11 +77,14 @@ def initialize_ai_agent(ai_settings):
     else:
         logger.info("AI_PROGRESS_TOKEN не установлен. Загрузка прогресса отключена.")
 
+
 # Инициализация AI агента с настройками по умолчанию при запуске
 initialize_ai_agent({})
 
+
 def serialize_card(card):
     return card.to_dict() if card else None
+
 
 def serialize_move(move, next_slots):
     logger.debug(f"Сериализация хода: {move}, next_slots: {next_slots}")
@@ -86,6 +95,7 @@ def serialize_move(move, next_slots):
     serialized['next_available_slots'] = next_slots
     logger.debug(f"Сериализованный ход: {serialized}")
     return serialized
+
 
 def get_next_available_slots(board):
     logger.debug("Вычисление следующих доступных слотов")
@@ -99,6 +109,7 @@ def get_next_available_slots(board):
     logger.debug(f"Следующие доступные слоты: {next_slots}")
     return next_slots
 
+
 def update_board_state(current_board, new_move):
     """Обновляет состояние доски с сохранением существующих карт"""
     for line in ['top', 'middle', 'bottom']:
@@ -108,15 +119,18 @@ def update_board_state(current_board, new_move):
                 if new_card is not None and i < len(current_line):
                     current_line[i] = new_card
     return current_board
+
+
 @app.route('/')
 def home():
     logger.debug("Обработка запроса главной страницы")
     return render_template('index.html')
 
+
 @app.route('/training')
 def training():
     logger.debug("Обработка запроса страницы тренировки")
-    
+
     if 'game_state' not in session:
         logger.info("Инициализация нового состояния игры в сессии")
         session['game_state'] = {
@@ -145,23 +159,25 @@ def training():
                     Card.from_dict(card_dict) for card_dict in session['game_state'][key]
                     if isinstance(card_dict, dict)
                 ]
-        
+
         # Преобразование карт на доске
         for line in ['top', 'middle', 'bottom']:
             if line in session['game_state']['board']:
                 session['game_state']['board'][line] = [
-                    Card.from_dict(card_dict) if isinstance(card_dict, dict) else None 
+                    Card.from_dict(card_dict) if isinstance(card_dict, dict) else None
                     for card_dict in session['game_state']['board'][line]
                 ]
 
     # Проверка необходимости реинициализации AI
-    if (cfr_agent is None or 
-        session['game_state']['ai_settings'] != session.get('previous_ai_settings')):
+    if (cfr_agent is None or
+            session['game_state']['ai_settings'] != session.get('previous_ai_settings')):
         initialize_ai_agent(session['game_state']['ai_settings'])
         session['previous_ai_settings'] = session['game_state']['ai_settings'].copy()
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
+
+
 @app.route('/update_state', methods=['POST'])
 def update_state():
     logger.debug("Обработка запроса обновления состояния")
@@ -180,7 +196,7 @@ def update_state():
         # Инициализация состояния игры в сессии, если его нет
         if 'game_state' not in session:
             session['game_state'] = {}
-        
+
         logger.debug(f"Состояние сессии ДО обновления: {session['game_state']}")
 
         # Обновление доски - сохраняем существующие карты
@@ -190,7 +206,7 @@ def update_state():
                 'middle': [None] * 5,
                 'bottom': [None] * 5
             })
-            
+
             # Обновляем только новые карты, сохраняя существующие
             for line in ['top', 'middle', 'bottom']:
                 if line in game_state['board']:
@@ -201,7 +217,7 @@ def update_state():
                             if new_card is not None:
                                 current_line[i] = new_card
                     current_board[line] = current_line
-            
+
             session['game_state']['board'] = current_board
             logger.debug(f"Обновленная доска: {session['game_state']['board']}")
 
@@ -225,11 +241,13 @@ def update_state():
     except Exception as e:
         logger.exception(f"Ошибка в update_state: {e}")
         return jsonify({'error': str(e)}), 500
+
+
 @app.route('/ai_move', methods=['POST'])
 def ai_move():
     global cfr_agent
     global random_agent
-    
+
     logger.debug("Обработка запроса хода AI")
     game_state_data = request.get_json()
     logger.debug(f"Получены данные состояния игры для хода AI: {game_state_data}")
@@ -285,7 +303,7 @@ def ai_move():
             ai_settings=game_state_data.get('ai_settings', {}),
             deck=ai_engine.Card.get_all_cards()
         )
-      logger.debug(f"Создано состояние игры: {game_state}")
+        logger.debug(f"Создано состояние игры: {game_state}")
 
         # Проверка терминального состояния
         if game_state.is_terminal():
@@ -329,11 +347,11 @@ def ai_move():
                 if cfr_agent is None:
                     logger.error("Ошибка: MCCFR агент не инициализирован")
                     return jsonify({'error': 'MCCFR agent not initialized'}), 500
-                ai_thread = Thread(target=cfr_agent.get_move, 
-                                 args=(game_state, len(selected_cards), timeout_event, result))
+                ai_thread = Thread(target=cfr_agent.get_move,
+                                   args=(game_state, len(selected_cards), timeout_event, result))
             else:  # ai_type == 'random'
-                ai_thread = Thread(target=random_agent.get_move, 
-                                 args=(game_state, len(selected_cards), timeout_event, result))
+                ai_thread = Thread(target=random_agent.get_move,
+                                   args=(game_state, len(selected_cards), timeout_event, result))
 
             ai_thread.start()
             ai_thread.join(timeout=int(ai_settings.get('aiTime', 5)))
@@ -348,7 +366,7 @@ def ai_move():
             if move is None or 'error' in move:
                 logger.error(f"Ошибка хода AI: {move.get('error', 'Unknown error')}")
                 return jsonify({'error': move.get('error', 'Unknown error')}), 500
-            
+
             logger.debug(f"Получен ход AI: {move}")
 
         except Exception as e:
@@ -384,6 +402,7 @@ def ai_move():
         except Exception as e:
             logger.exception("Исключение при сериализации и отправке ответа:")
             return jsonify({'error': f"Error during move serialization: {e}"}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
