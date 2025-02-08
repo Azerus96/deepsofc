@@ -388,9 +388,9 @@ def ai_move():
                 logger.debug(f"Отправка ответа: {response_data}")
                 return jsonify(response_data), 200
 
-            except Exception as e:
-                logger.exception("Исключение при сериализации и отправке ответа:")
-                return jsonify({'error': f"Error during move serialization: {e}"}), 500
+        except Exception as e:
+            logger.exception("Исключение при сериализации и отправке ответа:")
+            return jsonify({'error': f"Error during move serialization: {e}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=10000)
