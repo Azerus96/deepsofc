@@ -125,9 +125,10 @@ def training():
 
     logger.info(f"Текущее состояние игры в сессии: {session['game_state']}")
     return render_template('training.html', game_state=session['game_state'])
+
 @app.route('/update_state', methods=['POST'])
 def update_state():
-    logger.debug("Обработка запроса обновления состояния")
+    logger.debug("Обработка запроса обновления состояния - START")
     if not request.is_json:
         logger.error("Ошибка: Запрос не в формате JSON")
         return jsonify({'error': 'Content type must be application/json'}), 400
@@ -171,8 +172,27 @@ def update_state():
         # Обновление других ключей
         if 'selected_cards' in game_state:
             session['game_state']['selected_cards'] = game_state['selected_cards']
+            logger.debug(f"Обновлены selected_cards в сессии: {session['game_state']['selected_cards']}")
         if 'discarded_cards' in game_state:
             session['game_state']['discarded_cards'] = game_state['discarded_cards']
+            logger.debug(f"Обновлены discarded_cards в сессии: {session['game_state']['discarded_cards']}")
+        
+        # Добавляем removed_cards в discarded_cards, чтобы они не были доступны
+        if 'removed_cards' in game_state and game_state['removed_cards']:
+            if 'discarded_cards' not in session['game_state']:
+                session['game_state']['discarded_cards'] = []
+            
+            # Преобразуем словари в строки для сравнения
+            existing_discarded = [str(card) for card in session['game_state']['discarded_cards']]
+            
+            for card in game_state['removed_cards']:
+                card_str = str(card)
+                if card_str not in existing_discarded:
+                    session['game_state']['discarded_cards'].append(card)
+                    existing_discarded.append(card_str)
+            
+            logger.debug(f"removed_cards добавлены в discarded_cards сессии: {session['game_state']['discarded_cards']}")
+        
         if 'ai_settings' in game_state:
             session['game_state']['ai_settings'] = game_state['ai_settings']
 
@@ -183,6 +203,7 @@ def update_state():
             session['previous_ai_settings'] = game_state.get('ai_settings', {}).copy()
 
         logger.debug(f"Состояние сессии ПОСЛЕ обновления: {session['game_state']}")
+        logger.debug("Обработка запроса обновления состояния - END")
         return jsonify({'status': 'success'})
 
     except Exception as e:
